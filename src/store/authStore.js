@@ -1,49 +1,118 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { supabase } from '../lib/supabase';
 
-/**
- * Auth Store for TaTU Submission Portal
- * Manages user session, roles (Student/Lecturer), and profile.
- */
 export const useAuthStore = create(
   persist(
     (set) => ({
       user: null,
       isAuthenticated: false,
-      role: null, // 'student' | 'lecturer'
-      
-      register: (userData) => {
-        // Store registered users in localStorage for future login
-        const users = JSON.parse(localStorage.getItem('tatu-registered-users') || '[]');
-        users.push({ email: userData.email, password: userData.password, role: userData.role, name: userData.name });
-        localStorage.setItem('tatu-registered-users', JSON.stringify(users));
+      role: null,
+      loading: false,
+
+      initialize: async () => {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user) {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', session.user.id)
+            .single();
+
+          set({
+            user: profile || { id: session.user.id, email: session.user.email },
+            isAuthenticated: true,
+            role: profile?.role || 'student'
+          });
+        }
       },
 
-      login: (userData) => {
-        // Check if there's a registered user with matching email/password
-        const users = JSON.parse(localStorage.getItem('tatu-registered-users') || '[]');
-        const registered = users.find(
-          u => u.email === userData.email && u.password === userData.password
-        );
-        const role = registered?.role || userData.role || 'student';
+      signUp: async ({ email, password, name, role, institution }) => {
+        set({ loading: true });
+        const { data, error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: { data: { name, role, institution } }
+        });
 
-        set({ 
-          user: { ...userData, ...(registered && { name: registered.name, role }) },
-          isAuthenticated: true, 
-          role,
+        if (error) {
+          set({ loading: false });
+          return { error: error.message };
+        }
+
+        if (data.user) {
+          const { error: profileError } = await supabase.from('profiles').insert({
+            id: data.user.id,
+            name,
+            email,
+            role,
+            institution: institution || 'Tamale Technical University'
+          });
+
+          if (profileError) {
+            set({ loading: false });
+            return { error: profileError.message };
+          }
+
+          set({
+            user: { id: data.user.id, name, email, role, institution },
+            isAuthenticated: true,
+            role,
+            loading: false
+          });
+        }
+        return { error: null };
+      },
+
+      login: async ({ email, password }) => {
+        set({ loading: true });
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email,
+          password
+        });
+
+        if (error) {
+          set({ loading: false });
+          return { error: error.message };
+        }
+
+        if (data.user) {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', data.user.id)
+            .single();
+
+          set({
+            user: profile || { id: data.user.id, email: data.user.email },
+            isAuthenticated: true,
+            role: profile?.role || 'student',
+            loading: false
+          });
+        }
+        return { error: null };
+      },
+
+      logout: async () => {
+        await supabase.auth.signOut();
+        set({
+          user: null,
+          isAuthenticated: false,
+          role: null,
+          acceptedCourses: []
         });
       },
-      
-      logout: () => set({ 
-        user: null, 
-        isAuthenticated: false, 
-        role: null,
-        acceptedCourses: []
-      }),
-      
-      updateProfile: (updates) => set((state) => ({
-        user: { ...state.user, ...updates }
-      })),
+
+      updateProfile: async (updates) => {
+        const user = useAuthStore.getState().user;
+        if (!user?.id) return;
+
+        await supabase.from('profiles').update(updates).eq('id', user.id);
+
+        set((state) => ({
+          user: { ...state.user, ...updates }
+        }));
+      },
 
       acceptedCourses: [],
 

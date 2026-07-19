@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import styled from 'styled-components';
 import { useAuthStore } from '../../store/authStore';
-import { GraduationCap, ShieldCheck, ArrowRight, User, Lock, Mail } from 'lucide-react';
+import { GraduationCap, ShieldCheck, ArrowRight, User, Lock, Mail, Loader } from 'lucide-react';
 
 const Container = styled.div`
   height: 100vh;
@@ -11,12 +11,11 @@ const Container = styled.div`
   position: relative;
   overflow: hidden;
 
-  /* Subtle Terra Pattern Background */
   &::before {
     content: '';
     position: absolute;
     inset: 0;
-    background: 
+    background:
       radial-gradient(circle at 2px 2px, ${({ theme }) => theme.colors.primary}10 1px, transparent 0);
     background-size: 24px 24px;
   }
@@ -107,6 +106,7 @@ const InputIcon = styled.div`
   top: 50%;
   transform: translateY(-50%);
   color: ${({ theme }) => theme.colors.primary}80;
+  pointer-events: none;
 `;
 
 const Input = styled.input`
@@ -177,8 +177,10 @@ const SubmitButton = styled.button`
     box-shadow: 0 12px 24px ${({ theme }) => theme.colors.primary}50;
   }
 
-  &:active {
-    transform: translateY(0);
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
   }
 `;
 
@@ -200,30 +202,43 @@ const StyledLink = styled(Link)`
   }
 `;
 
+const ErrorMsg = styled.p`
+  color: #e74c3c;
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-align: center;
+  margin: 0;
+`;
+
 const InstitutionalLogin = () => {
   const navigate = useNavigate();
   const isAuthenticated = useAuthStore(state => state.isAuthenticated);
-  const [role, setRole] = useState('student');
-  const [email, setEmail] = useState('student@tatu.edu.gh');
-  const [password, setPassword] = useState('password');
   const login = useAuthStore(state => state.login);
+  const loading = useAuthStore(state => state.loading);
 
-  // Redirect to dashboard after successful login
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+
   useEffect(() => {
     if (isAuthenticated) {
       navigate('/');
     }
   }, [isAuthenticated, navigate]);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    login({
-      name: role === 'student' ? 'Zack Student' : 'Dr. Lecturer',
-      email,
-      role,
-      institution: 'Tamale Technical University'
-    });
-    // navigation handled by useEffect
+    setError('');
+
+    if (!email || !password) {
+      setError('Please enter your email and password.');
+      return;
+    }
+
+    const result = await login({ email, password });
+    if (result?.error) {
+      setError(result.error);
+    }
   };
 
   return (
@@ -238,52 +253,33 @@ const InstitutionalLogin = () => {
           <Subtitle>Excellence through Knowledge</Subtitle>
         </Header>
 
-        <RoleSwitcher>
-          <RoleButton 
-            type="button" 
-            $active={role === 'student'} 
-            onClick={() => {
-              setRole('student');
-              setEmail('student@tatu.edu.gh');
-            }}
-          >
-            <User size={18} /> Student
-          </RoleButton>
-          <RoleButton 
-            type="button" 
-            $active={role === 'lecturer'} 
-            onClick={() => {
-              setRole('lecturer');
-              setEmail('lecturer@tatu.edu.gh');
-            }}
-          >
-            <ShieldCheck size={18} /> Lecturer
-          </RoleButton>
-        </RoleSwitcher>
-
         <Form onSubmit={handleSubmit}>
           <InputGroup>
             <InputIcon><Mail size={20} /></InputIcon>
-            <Input 
-              type="email" 
-              placeholder="Your Email" 
+            <Input
+              type="email"
+              placeholder="Your Email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              required 
+              required
             />
           </InputGroup>
           <InputGroup>
             <InputIcon><Lock size={20} /></InputIcon>
-            <Input 
-              type="password" 
-              placeholder="Password" 
+            <Input
+              type="password"
+              placeholder="Password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              required 
+              required
             />
           </InputGroup>
-          <SubmitButton type="submit">
-            Sign In to Portal <ArrowRight size={20} />
+
+          {error && <ErrorMsg>{error}</ErrorMsg>}
+
+          <SubmitButton type="submit" disabled={loading}>
+            {loading ? <Loader size={20} className="spin" /> : <ArrowRight size={20} />}
+            {loading ? 'Signing In...' : 'Sign In to Portal'}
           </SubmitButton>
         </Form>
 

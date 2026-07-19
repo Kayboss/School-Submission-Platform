@@ -1,9 +1,21 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { ThemeContextProvider } from './context/ThemeContext';
 import { GlobalStyles } from './styles/GlobalStyles';
 import { useAuthStore } from './store/authStore';
+import { useCourseStore } from './store/courseStore';
+import { useAssignmentStore } from './store/assignmentStore';
+import { useSubmissionStore } from './store/submissionStore';
+import { useRubricStore } from './store/rubricStore';
 import { HelmetProvider } from 'react-helmet-async';
+import styled from 'styled-components';
+
+const Splash = styled.div`
+  height: 100vh; display: flex; align-items: center; justify-content: center;
+  background: ${({ theme }) => theme.colors.background.main};
+  color: ${({ theme }) => theme.colors.primary};
+  font-weight: 800; font-size: 1.5rem;
+`;
 
 // Features
 import InstitutionalLogin from './features/auth/InstitutionalLogin';
@@ -21,6 +33,33 @@ import LecturerAssignments from './features/lecturer/LecturerAssignments';
 import LecturerStudents from './features/lecturer/LecturerStudents';
 import { ToastContainer } from './components/ui/ToastContainer';
 
+
+// Loads data from Supabase when authenticated
+const DataLoader = ({ children }) => {
+  const isAuthenticated = useAuthStore(s => s.isAuthenticated);
+  const loadCourses = useCourseStore(s => s.loadCourses);
+  const loadAssignments = useAssignmentStore(s => s.loadAssignments);
+  const loadSubmissions = useSubmissionStore(s => s.loadSubmissions);
+  const loadRubrics = useRubricStore(s => s.loadRubrics);
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      Promise.all([
+        loadCourses(),
+        loadAssignments(),
+        loadSubmissions(),
+        loadRubrics()
+      ]).finally(() => setLoaded(true));
+    }
+  }, [isAuthenticated]);
+
+  if (isAuthenticated && !loaded) {
+    return <Splash>Loading data...</Splash>;
+  }
+
+  return children;
+};
 
 // Protected Route Wrapper
 const CheckAuth = ({ children }) => {
@@ -41,6 +80,24 @@ const Dashboard = () => {
 };
 
 const App = () => {
+  const initialize = useAuthStore(s => s.initialize);
+  const [init, setInit] = useState(false);
+
+  useEffect(() => {
+    initialize().finally(() => setInit(true));
+  }, [initialize]);
+
+  if (!init) {
+    return (
+      <HelmetProvider>
+        <ThemeContextProvider>
+          <GlobalStyles />
+          <Splash>Loading...</Splash>
+        </ThemeContextProvider>
+      </HelmetProvider>
+    );
+  }
+
   return (
     <HelmetProvider>
       <ThemeContextProvider>
@@ -57,7 +114,9 @@ const App = () => {
               path="/" 
               element={
                 <CheckAuth>
-                  <Layout />
+                  <DataLoader>
+                    <Layout />
+                  </DataLoader>
                 </CheckAuth>
               }
             >

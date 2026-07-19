@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import styled from 'styled-components';
 import { useAuthStore } from '../../store/authStore';
-import { GraduationCap, ShieldCheck, User, Lock, Mail, ArrowRight, Building, Eye, EyeOff } from 'lucide-react';
+import { GraduationCap, ShieldCheck, User, Lock, Mail, ArrowRight, Building, Eye, EyeOff, Loader } from 'lucide-react';
 
 const Container = styled.div`
   height: 100vh;
@@ -15,7 +15,7 @@ const Container = styled.div`
     content: '';
     position: absolute;
     inset: 0;
-    background: 
+    background:
       radial-gradient(circle at 2px 2px, ${({ theme }) => theme.colors.primary}10 1px, transparent 0);
     background-size: 24px 24px;
   }
@@ -195,8 +195,10 @@ const SubmitButton = styled.button`
     box-shadow: 0 12px 24px ${({ theme }) => theme.colors.primary}50;
   }
 
-  &:active {
-    transform: translateY(0);
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
   }
 `;
 
@@ -217,11 +219,19 @@ const StyledLink = styled(Link)`
   }
 `;
 
+const ErrorMsg = styled.p`
+  color: #e74c3c;
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-align: center;
+  margin: 0;
+`;
+
 const InstitutionalSignup = () => {
   const navigate = useNavigate();
   const isAuthenticated = useAuthStore(state => state.isAuthenticated);
-  const register = useAuthStore(state => state.register);
-  const login = useAuthStore(state => state.login);
+  const signUp = useAuthStore(state => state.signUp);
+  const loading = useAuthStore(state => state.loading);
 
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -238,7 +248,7 @@ const InstitutionalSignup = () => {
     }
   }, [isAuthenticated, navigate]);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
 
@@ -257,16 +267,10 @@ const InstitutionalSignup = () => {
       return;
     }
 
-    // Check if email already registered
-    const users = JSON.parse(localStorage.getItem('tatu-registered-users') || '[]');
-    if (users.find(u => u.email === email)) {
-      setError('An account with this email already exists.');
-      return;
+    const result = await signUp({ email, password, name, role, institution });
+    if (result?.error) {
+      setError(result.error);
     }
-
-    register({ name, email, password, role, institution });
-
-    login({ name, email, role, institution });
   };
 
   return (
@@ -282,16 +286,16 @@ const InstitutionalSignup = () => {
         </Header>
 
         <RoleSwitcher>
-          <RoleButton 
-            type="button" 
-            $active={role === 'student'} 
+          <RoleButton
+            type="button"
+            $active={role === 'student'}
             onClick={() => setRole('student')}
           >
             <User size={16} /> Student
           </RoleButton>
-          <RoleButton 
-            type="button" 
-            $active={role === 'lecturer'} 
+          <RoleButton
+            type="button"
+            $active={role === 'lecturer'}
             onClick={() => setRole('lecturer')}
           >
             <ShieldCheck size={16} /> Lecturer
@@ -301,34 +305,34 @@ const InstitutionalSignup = () => {
         <Form onSubmit={handleSubmit}>
           <InputGroup>
             <InputIcon><User size={18} /></InputIcon>
-            <Input 
-              type="text" 
-              placeholder="Full Name" 
+            <Input
+              type="text"
+              placeholder="Full Name"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              required 
+              required
             />
           </InputGroup>
 
           <InputGroup>
             <InputIcon><Mail size={18} /></InputIcon>
-            <Input 
-              type="email" 
-              placeholder="Your Email" 
+            <Input
+              type="email"
+              placeholder="Your Email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              required 
+              required
             />
           </InputGroup>
 
           <InputGroup>
             <InputIcon><Lock size={18} /></InputIcon>
-            <Input 
-              type={showPassword ? 'text' : 'password'} 
-              placeholder="Password" 
+            <Input
+              type={showPassword ? 'text' : 'password'}
+              placeholder="Password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              required 
+              required
             />
             <PasswordToggle type="button" onClick={() => setShowPassword(!showPassword)}>
               {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
@@ -337,34 +341,31 @@ const InstitutionalSignup = () => {
 
           <InputGroup>
             <InputIcon><Lock size={18} /></InputIcon>
-            <Input 
-              type={showPassword ? 'text' : 'password'} 
-              placeholder="Confirm Password" 
+            <Input
+              type={showPassword ? 'text' : 'password'}
+              placeholder="Confirm Password"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
-              required 
+              required
             />
           </InputGroup>
 
           <InputGroup>
             <InputIcon><Building size={18} /></InputIcon>
-            <Input 
-              type="text" 
-              placeholder="Institution" 
+            <Input
+              type="text"
+              placeholder="Institution"
               value={institution}
               onChange={(e) => setInstitution(e.target.value)}
-              required 
+              required
             />
           </InputGroup>
 
-          {error && (
-            <p style={{ color: '#e74c3c', fontSize: '0.85rem', textAlign: 'center', margin: 0 }}>
-              {error}
-            </p>
-          )}
+          {error && <ErrorMsg>{error}</ErrorMsg>}
 
-          <SubmitButton type="submit">
-            Create Account <ArrowRight size={18} />
+          <SubmitButton type="submit" disabled={loading}>
+            {loading ? <Loader size={18} className="spin" /> : <ArrowRight size={18} />}
+            {loading ? 'Creating Account...' : 'Create Account'}
           </SubmitButton>
         </Form>
 
