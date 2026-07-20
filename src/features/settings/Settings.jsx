@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import styled from 'styled-components';
 import { useAuthStore } from '../../store/authStore';
 import { useToastStore } from '../../store/toastStore';
-import { User, Bell, Shield, Save, Moon, Sun } from 'lucide-react';
+import { User, Bell, Shield, Save, Moon, Sun, Loader } from 'lucide-react';
 
 const Container = styled.div` padding: 1rem; `;
 
@@ -80,12 +80,13 @@ const ToggleSwitch = styled.div`
 `;
 
 const SaveBtn = styled.button`
-  background: ${({ theme }) => theme.colors.primary}; color: white;
+  background: ${({ theme, disabled }) => disabled ? theme.colors.border : theme.colors.primary}; color: white;
   padding: 0.875rem 2rem; border-radius: ${({ theme }) => theme.borderRadius.medium};
   font-weight: 800; font-size: 0.9375rem;
   display: flex; align-items: center; gap: 0.75rem; margin-top: 1.5rem;
-  box-shadow: 0 6px 16px ${({ theme }) => theme.colors.primary}40;
-  &:hover { transform: translateY(-2px); }
+  box-shadow: ${({ disabled, theme }) => disabled ? 'none' : `0 6px 16px ${theme.colors.primary}40`};
+  cursor: ${({ disabled }) => disabled ? 'not-allowed' : 'pointer'};
+  &:hover { transform: ${({ disabled }) => disabled ? 'none' : 'translateY(-2px)'}; }
 `;
 
 const Badge = styled.span`
@@ -104,10 +105,13 @@ const Settings = () => {
   const [email, setEmail] = useState(user?.email || '');
   const [notifications, setNotifications] = useState({ email: true, sms: false, gradeAlerts: true });
   const [theme, setTheme] = useState('light');
+  const [isSaving, setIsSaving] = useState(false);
 
   const handleSave = () => {
+    setIsSaving(true);
     updateProfile({ name, email });
     addToast('Settings saved successfully', 'success');
+    setTimeout(() => setIsSaving(false), 600);
   };
 
   return (
@@ -137,7 +141,7 @@ const Settings = () => {
               <Label>Institution</Label>
               <Input value={user?.institution || 'Tamale Technical University'} disabled style={{ opacity: 0.6 }} />
             </FormGroup>
-            <SaveBtn onClick={handleSave}><Save size={18} /> Save Changes</SaveBtn>
+            <SaveBtn onClick={handleSave} disabled={isSaving}>{isSaving ? <Loader className="spin" size={18} /> : <Save size={18} />} Save Changes</SaveBtn>
           </Card>
 
           <Card style={{ marginTop: '1.5rem' }}>

@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
 import { useSubmissionStore } from '../../store/submissionStore';
@@ -6,7 +6,7 @@ import { useAssignmentStore } from '../../store/assignmentStore';
 import { useCourseStore } from '../../store/courseStore';
 import {
   Users, BookOpen, FileText, CheckCircle, Clock, AlertCircle,
-  ArrowRight, TrendingUp, Award, BarChart2, DownloadCloud
+  ArrowRight, TrendingUp, Award, BarChart2, DownloadCloud, Loader
 } from 'lucide-react';
 import styled from 'styled-components';
 import { exportGradesCsv } from '../../utils/exportCsv';
@@ -89,10 +89,11 @@ const BarCount = styled.div`
 const QuickActionRow = styled.div` display: flex; gap: 1rem; margin-bottom: 1.5rem; flex-wrap: wrap; `;
 const ActionChip = styled.button`
   display: flex; align-items: center; gap: 0.5rem; padding: 0.6rem 1.25rem;
-  background: ${({ $color }) => $color}10; color: ${({ $color }) => $color};
+  background: ${({ $color, disabled }) => disabled ? '#ccc' : $color}10; color: ${({ $color, disabled }) => disabled ? '#999' : $color};
   border-radius: ${({ theme }) => theme.borderRadius.full};
-  font-weight: 700; font-size: 0.8rem; border: none; cursor: pointer;
-  &:hover { transform: translateY(-2px); }
+  font-weight: 700; font-size: 0.8rem; border: none;
+  cursor: ${({ disabled }) => disabled ? 'not-allowed' : 'pointer'};
+  &:hover { transform: ${({ disabled }) => disabled ? 'none' : 'translateY(-2px)'}; }
 `;
 
 const Section = styled.div` margin-bottom: 2rem; `;
@@ -197,9 +198,13 @@ const LecturerDashboard = () => {
     });
   }, [courses, submissions]);
 
+  const [isExporting, setIsExporting] = useState(false);
+
   const handleCsvExport = () => {
+    setIsExporting(true);
     exportGradesCsv(submissions);
     addToast('All grades exported as CSV', 'success');
+    setTimeout(() => setIsExporting(false), 600);
   };
 
   const stats = useMemo(() => ({
@@ -271,8 +276,8 @@ const LecturerDashboard = () => {
       </StatsGrid>
 
       <QuickActionRow>
-        <ActionChip $color="#4a7c59" onClick={handleCsvExport}>
-          <DownloadCloud size={16} /> Export All Grades (CSV)
+        <ActionChip $color="#4a7c59" onClick={handleCsvExport} disabled={isExporting}>
+          {isExporting ? <Loader className="spin" size={16} /> : <DownloadCloud size={16} />} Export All Grades (CSV)
         </ActionChip>
         <ActionChip $color="#b35a38" onClick={() => navigate('/lecturer/submissions')}>
           <BarChart2 size={16} /> View Submissions

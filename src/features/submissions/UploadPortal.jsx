@@ -3,7 +3,7 @@ import styled from 'styled-components';
 import { useSearchParams } from 'react-router-dom';
 import {
   Upload, CheckCircle, AlertCircle, X, FileText, ShieldCheck,
-  Send, HelpCircle, Link, Video, FolderOpen, Hash, Download, RotateCcw, Clock
+  Send, HelpCircle, Link, Video, FolderOpen, Hash, Download, RotateCcw, Clock, Loader
 } from 'lucide-react';
 import { useAssignmentStore } from '../../store/assignmentStore';
 import { useSubmissionStore } from '../../store/submissionStore';
@@ -514,9 +514,9 @@ const UploadPortal = () => {
             </FileList>
           )}
 
-          <SubmitButton disabled={!canSubmit} onClick={handleSubmit}>
-            {isSubmitting ? 'Securing Submission...' : 'Execute Submission'}
-            <Send size={20} strokeWidth={2.5} />
+          <SubmitButton disabled={!canSubmit || isSubmitting} onClick={handleSubmit}>
+            {isSubmitting ? <><Loader className="spin" size={20} /> Securing Submission...</> : 'Execute Submission'}
+            {!isSubmitting && <Send size={20} strokeWidth={2.5} />}
           </SubmitButton>
         </FormSection>
 

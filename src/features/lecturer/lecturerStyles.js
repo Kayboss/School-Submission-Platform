@@ -93,11 +93,12 @@ export const StatusBadge = styled.span`
 `;
 
 export const ActionBtn = styled.button`
-  background: ${({ $variant, theme }) => $variant === 'primary' ? theme.colors.primary : theme.colors.background.alt};
-  color: ${({ $variant }) => $variant === 'primary' ? 'white' : 'inherit'};
+  background: ${({ $variant, disabled, theme }) => disabled ? theme.colors.border : $variant === 'primary' ? theme.colors.primary : theme.colors.background.alt};
+  color: ${({ $variant, disabled }) => disabled ? 'white' : $variant === 'primary' ? 'white' : 'inherit'};
   border: none; width: 34px; height: 34px; border-radius: 8px;
   display: inline-flex; align-items: center; justify-content: center; transition: all 0.2s;
-  &:hover { transform: translateY(-2px); }
+  cursor: ${({ disabled }) => disabled ? 'not-allowed' : 'pointer'};
+  &:hover { transform: ${({ disabled }) => disabled ? 'none' : 'translateY(-2px)'}; }
 `;
 export const ActionGroup = styled.div` display: flex; gap: 0.4rem; `;
 
@@ -131,10 +132,13 @@ export const FeedbackTextarea = styled.textarea`
 `;
 export const ModalActions = styled.div` display: flex; gap: 1rem; `;
 export const PrimaryBtn = styled.button`
-  flex: 1; padding: 0.875rem; background: ${({ theme }) => theme.colors.primary};
+  flex: 1; padding: 0.875rem;
+  background: ${({ theme, disabled }) => disabled ? theme.colors.border : theme.colors.primary};
   color: white; border-radius: ${({ theme }) => theme.borderRadius.medium};
-  font-weight: 800; box-shadow: 0 6px 16px ${({ theme }) => theme.colors.primary}40;
-  &:hover { transform: translateY(-2px); }
+  font-weight: 800;
+  box-shadow: ${({ disabled, theme }) => disabled ? 'none' : `0 6px 16px ${theme.colors.primary}40`};
+  cursor: ${({ disabled }) => disabled ? 'not-allowed' : 'pointer'};
+  &:hover { transform: ${({ disabled }) => disabled ? 'none' : 'translateY(-2px)'}; }
 `;
 export const SecondaryBtn = styled.button`
   padding: 0.875rem 1.5rem; background: ${({ theme }) => theme.colors.background.alt};

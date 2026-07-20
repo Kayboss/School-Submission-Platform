@@ -13,7 +13,7 @@ import {
   Clock,
   Image as ImageIcon,
   Camera,
-  Check,
+  Check, Loader,
   ClipboardList
 } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
@@ -245,18 +245,19 @@ const ActionButton = styled.button`
 `;
 
 const AcceptBtn = styled.button`
-  background: ${({ $accepted, theme }) => $accepted ? theme.colors.tertiary : 'transparent'};
-  color: ${({ $accepted, theme }) => $accepted ? 'white' : theme.colors.primary};
+  background: ${({ $accepted, disabled, theme }) => disabled ? theme.colors.border : $accepted ? theme.colors.tertiary : 'transparent'};
+  color: ${({ $accepted, disabled, theme }) => disabled ? 'white' : $accepted ? 'white' : theme.colors.primary};
   font-weight: 800;
   font-size: 0.875rem;
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  padding: ${({ $accepted }) => $accepted ? '0.5rem 1rem' : '0'};
+  padding: ${({ $accepted, disabled }) => disabled || $accepted ? '0.5rem 1rem' : '0'};
   border-radius: ${({ theme }) => theme.borderRadius.medium};
+  cursor: ${({ disabled }) => disabled ? 'not-allowed' : 'pointer'};
 
   &:hover {
-    text-decoration: ${({ $accepted }) => $accepted ? 'none' : 'underline'};
+    text-decoration: ${({ $accepted, disabled }) => disabled ? 'none' : $accepted ? 'none' : 'underline'};
   }
 `;
 
@@ -543,6 +544,7 @@ const CourseList = () => {
   const [modalOpen, setModalOpen] = useState(false);
   const [editingCourse, setEditingCourse] = useState(null);
   const [assignModalCourse, setAssignModalCourse] = useState(null);
+  const [acceptingCourseId, setAcceptingCourseId] = useState(null);
 
   // Form states
   const [code, setCode] = useState('');
@@ -671,9 +673,12 @@ const CourseList = () => {
               {!isLecturer && (
                 <AcceptBtn
                   $accepted={acceptedCourses.includes(course.id)}
-                  onClick={() => acceptCourse(course.id)}
+                  onClick={() => { setAcceptingCourseId(course.id); acceptCourse(course.id); setTimeout(() => setAcceptingCourseId(null), 600); }}
+                  disabled={acceptingCourseId === course.id}
                 >
-                  {acceptedCourses.includes(course.id) ? (
+                  {acceptingCourseId === course.id ? (
+                    <><Loader className="spin" size={16} /> Accepting...</>
+                  ) : acceptedCourses.includes(course.id) ? (
                     <><Check size={16} /> Accepted</>
                   ) : (
                     <>Accept Course <ArrowRight size={16} /></>

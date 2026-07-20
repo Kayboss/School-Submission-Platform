@@ -3,7 +3,7 @@ import { useAssignmentStore } from '../../store/assignmentStore';
 import { useCourseStore } from '../../store/courseStore';
 import { useToastStore } from '../../store/toastStore';
 import { useRubricStore } from '../../store/rubricStore';
-import { Plus, RotateCcw, AlertTriangle, ClipboardList, Trash2 } from 'lucide-react';
+import { Plus, RotateCcw, AlertTriangle, ClipboardList, Trash2, Loader } from 'lucide-react';
 import {
   Container, PrimaryBtn, AssignForm, FormGrid, FormGroup, Label,
   FormInput, FormTextarea, FormSelect, CheckboxGroup, CheckboxLabel,
@@ -38,6 +38,8 @@ const LecturerAssignments = () => {
 
   const [showRubricFor, setShowRubricFor] = useState(null);
   const [rCriteria, setRCriteria] = useState([{ name: '', description: '', maxScore: 25 }]);
+  const [isCreating, setIsCreating] = useState(false);
+  const [isSavingRubric, setIsSavingRubric] = useState(false);
 
   const [showCreator, setShowCreator] = useState(false);
   const [aTitle, setATitle] = useState('');
@@ -56,6 +58,7 @@ const LecturerAssignments = () => {
   const handleCreateAssignment = (e) => {
     e.preventDefault();
     if (!aTitle || !aDesc || !aDue) return;
+    setIsCreating(true);
     createAssignment({
       courseCode: aCourse,
       title: aTitle,
@@ -65,11 +68,9 @@ const LecturerAssignments = () => {
       maxSize: Number(aMaxSize),
       allowedExtensions: aExt.split(',').map(e => e.trim()),
       lecturerName: 'Dr. Lecturer',
-      latePenalty: Number(aLatePenalty),
-      allowResubmission: aAllowResub,
-      maxResubmissions: Number(aMaxResub)
     });
-    addToast(`Assignment "${aTitle}" created`, 'success');
+    setIsCreating(false);
+    addToast('Assignment created', 'success');
     setShowCreator(false);
     setATitle(''); setADesc(''); setADue(''); setAMaxSize('10'); setAExt('.pdf');
     setADoc(true); setAVideo(false); setAProject(false);
@@ -95,11 +96,13 @@ const LecturerAssignments = () => {
       addToast('Add at least one criterion with a name and max score', 'error');
       return;
     }
+    setIsSavingRubric(true);
     const existing = rubrics.find(r => r.assignmentId === assignmentId);
     if (existing) {
       deleteRubric(existing.id);
     }
     createRubric({ assignmentId, criteria: validCriteria });
+    setIsSavingRubric(false);
     addToast('Rubric saved successfully', 'success');
     setShowRubricFor(null);
     setRCriteria([{ name: '', description: '', maxScore: 25 }]);
@@ -179,7 +182,9 @@ const LecturerAssignments = () => {
                 </CheckboxGroup>
               </FormGroup>
             </FormGrid>
-            <CreateBtn type="submit">Create Assignment</CreateBtn>
+            <CreateBtn type="submit" disabled={isCreating}>
+              {isCreating ? <><Loader className="spin" size={18} /> Creating...</> : 'Create Assignment'}
+            </CreateBtn>
           </form>
         </AssignForm>
       )}
@@ -224,8 +229,8 @@ const LecturerAssignments = () => {
               ))}
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '0.75rem' }}>
                 <SecondaryBtn onClick={() => setShowRubricFor(null)} style={{ padding: '0.4rem 0.75rem', fontSize: '0.75rem' }}>Cancel</SecondaryBtn>
-                <PrimaryBtn onClick={() => handleSaveRubric(a.id)} style={{ padding: '0.4rem 0.75rem', fontSize: '0.75rem' }}>
-                  Save Rubric
+                <PrimaryBtn onClick={() => handleSaveRubric(a.id)} disabled={isSavingRubric} style={{ padding: '0.4rem 0.75rem', fontSize: '0.75rem' }}>
+                  {isSavingRubric ? <><Loader className="spin" size={14} /> Saving...</> : 'Save Rubric'}
                 </PrimaryBtn>
               </div>
             </RubricSection>

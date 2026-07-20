@@ -7,7 +7,7 @@ import { useRubricStore } from '../../store/rubricStore';
 import { exportGradesCsv } from '../../utils/exportCsv';
 import {
   FileText, CheckCircle, Clock, AlertCircle, Download, Eye,
-  Search, BarChart2, Package, Video, DownloadCloud, RotateCcw, ClipboardList, Award
+  Search, BarChart2, Package, Video, DownloadCloud, RotateCcw, ClipboardList, Award, Loader
 } from 'lucide-react';
 import {
   Container, StatsRow, StatCard, StatIconWrap, StatLabel, StatValue,
@@ -94,6 +94,8 @@ const LecturerSubmissions = () => {
   const [viewerTarget, setViewerTarget] = useState(null);
   const [viewVersion, setViewVersion] = useState(0);
   const [bulkLoading, setBulkLoading] = useState(false);
+  const [isGrading, setIsGrading] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
 
   const assignment = gradingTarget ? assignments.find(a => a.id === gradingTarget.assignmentId) : null;
   const rubric = assignment ? rubrics.find(r => r.assignmentId === assignment.id) : null;
@@ -118,6 +120,7 @@ const LecturerSubmissions = () => {
 
   const handleGrade = () => {
     if (!gradingTarget) return;
+    setIsGrading(true);
     if (useRubric && rubric) {
       const total = rubric.criteria.reduce((sum, c) => sum + (Number(rubricScores[c.name] || 0)), 0);
       const maxTotal = rubric.criteria.reduce((sum, c) => sum + c.maxScore, 0);
@@ -129,6 +132,7 @@ const LecturerSubmissions = () => {
       gradeSubmission(gradingTarget.id, gradeScore, gradeFeedback);
       addToast(`Graded ${gradingTarget.studentName} — ${gradeScore}/100`, 'success');
     }
+    setIsGrading(false);
     setGradingTarget(null);
     setGradeScore('');
     setGradeFeedback('');
@@ -155,8 +159,10 @@ const LecturerSubmissions = () => {
   };
 
   const handleCsvExport = () => {
+    setIsExporting(true);
     exportGradesCsv(submissions, filterCourse !== 'all' ? filterCourse : null);
     addToast('Grade sheet exported as CSV', 'success');
+    setTimeout(() => setIsExporting(false), 600);
   };
 
   const displayVersions = (sub) => {
@@ -212,11 +218,11 @@ const LecturerSubmissions = () => {
           <option value="Graded">Graded</option>
           <option value="Late">Late</option>
         </FilterSelect>
-        <ActionBtn $variant="primary" onClick={handleBulkDownload} title="Bulk ZIP download">
-          <Package size={18} />
+        <ActionBtn $variant="primary" onClick={handleBulkDownload} disabled={bulkLoading} title="Bulk ZIP download">
+          {bulkLoading ? <Loader className="spin" size={18} /> : <Package size={18} />}
         </ActionBtn>
-        <CsvBtn onClick={handleCsvExport} title="Export as CSV">
-          <DownloadCloud size={16} /> CSV
+        <CsvBtn onClick={handleCsvExport} disabled={isExporting} title="Export as CSV">
+          {isExporting ? <Loader className="spin" size={14} /> : <DownloadCloud size={16} />} CSV
         </CsvBtn>
       </Controls>
 
@@ -345,8 +351,8 @@ const LecturerSubmissions = () => {
             <FeedbackTextarea placeholder="Write feedback..." value={gradeFeedback} onChange={e => setGradeFeedback(e.target.value)} />
             <ModalActions>
               <SecondaryBtn onClick={() => setGradingTarget(null)}>Cancel</SecondaryBtn>
-              <PrimaryBtn onClick={handleGrade} disabled={!useRubric && !gradeScore}>
-                <Award size={16} /> Submit Grade
+              <PrimaryBtn onClick={handleGrade} disabled={(!useRubric && !gradeScore) || isGrading}>
+                {isGrading ? <Loader className="spin" size={16} /> : <Award size={16} />} Submit Grade
               </PrimaryBtn>
             </ModalActions>
           </Modal>
