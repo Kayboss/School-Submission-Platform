@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import styled from 'styled-components';
+import { supabase } from '../../lib/supabase';
 import { useAuthStore } from '../../store/authStore';
 import { useToastStore } from '../../store/toastStore';
-import { supabase } from '../../lib/supabase';
 import { User, Bell, Shield, Save, Moon, Sun, Loader } from 'lucide-react';
 
 const Container = styled.div` padding: 1rem; `;
@@ -102,10 +102,11 @@ const Settings = () => {
   const updateProfile = useAuthStore(s => s.updateProfile);
   const addToast = useToastStore(s => s.addToast);
 
+  const defaultNotifs = { email: true, sms: false, gradeAlerts: true };
   const [name, setName] = useState(user?.name || '');
   const [email, setEmail] = useState(user?.email || '');
-  const [notifications, setNotifications] = useState({ email: true, sms: false, gradeAlerts: true });
-  const [theme, setTheme] = useState('light');
+  const [notifications, setNotifications] = useState(user?.notification_preferences || defaultNotifs);
+  const [theme, setTheme] = useState(user?.theme || 'light');
   const [isSaving, setIsSaving] = useState(false);
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -113,7 +114,7 @@ const Settings = () => {
 
   const handleSave = () => {
     setIsSaving(true);
-    updateProfile({ name, email });
+    updateProfile({ name, email, notification_preferences: notifications, theme });
     addToast('Settings saved successfully', 'success');
     setTimeout(() => setIsSaving(false), 600);
   };
@@ -193,21 +194,21 @@ const Settings = () => {
                 <ToggleLabel>Email Notifications</ToggleLabel>
                 <ToggleDesc>Receive submission confirmations via email</ToggleDesc>
               </div>
-              <ToggleSwitch $on={notifications.email} onClick={() => setNotifications(p => ({ ...p, email: !p.email }))} />
+              <ToggleSwitch $on={notifications.email} onClick={() => { const v = !notifications.email; setNotifications(p => ({ ...p, email: v })); supabase.from('profiles').update({ notification_preferences: { ...notifications, email: v } }).eq('id', user?.id); }} />
             </ToggleRow>
             <ToggleRow>
               <div>
                 <ToggleLabel>SMS Alerts</ToggleLabel>
                 <ToggleDesc>Get text messages for urgent updates</ToggleDesc>
               </div>
-              <ToggleSwitch $on={notifications.sms} onClick={() => setNotifications(p => ({ ...p, sms: !p.sms }))} />
+              <ToggleSwitch $on={notifications.sms} onClick={() => { const v = !notifications.sms; setNotifications(p => ({ ...p, sms: v })); supabase.from('profiles').update({ notification_preferences: { ...notifications, sms: v } }).eq('id', user?.id); }} />
             </ToggleRow>
             <ToggleRow>
               <div>
                 <ToggleLabel>Grade Alerts</ToggleLabel>
                 <ToggleDesc>Notify when submissions are graded</ToggleDesc>
               </div>
-              <ToggleSwitch $on={notifications.gradeAlerts} onClick={() => setNotifications(p => ({ ...p, gradeAlerts: !p.gradeAlerts }))} />
+              <ToggleSwitch $on={notifications.gradeAlerts} onClick={() => { const v = !notifications.gradeAlerts; setNotifications(p => ({ ...p, gradeAlerts: v })); supabase.from('profiles').update({ notification_preferences: { ...notifications, gradeAlerts: v } }).eq('id', user?.id); }} />
             </ToggleRow>
           </Card>
 
@@ -215,7 +216,7 @@ const Settings = () => {
             <CardTitle>{theme === 'light' ? <Sun size={22} color="#b35a38" /> : <Moon size={22} color="#b35a38" />} Preferences</CardTitle>
             <FormGroup>
               <Label>Theme</Label>
-              <Select value={theme} onChange={e => setTheme(e.target.value)}>
+              <Select value={theme} onChange={e => { setTheme(e.target.value); supabase.from('profiles').update({ theme: e.target.value }).eq('id', user?.id); }}>
                 <option value="light">Light Mode</option>
                 <option value="dark">Dark Mode (coming soon)</option>
               </Select>
