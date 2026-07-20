@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useAuthStore } from '../../store/authStore';
 import { useAssignmentStore } from '../../store/assignmentStore';
 import { useCourseStore } from '../../store/courseStore';
 import { useToastStore } from '../../store/toastStore';
@@ -28,6 +29,7 @@ const RubricInput = styled(FormInput)` font-size: 0.8rem; padding: 0.5rem 0.75re
 const RubricSmallInput = styled(FormInput)` width: 60px; font-size: 0.8rem; padding: 0.5rem; text-align: center; `;
 
 const LecturerAssignments = () => {
+  const user = useAuthStore(s => s.user);
   const assignments = useAssignmentStore(s => s.assignments);
   const createAssignment = useAssignmentStore(s => s.createAssignment);
   const courses = useCourseStore(s => s.courses);
@@ -67,7 +69,7 @@ const LecturerAssignments = () => {
       submissionTypes: { document: aDoc, video: aVideo, project: aProject },
       maxSize: Number(aMaxSize),
       allowedExtensions: aExt.split(',').map(e => e.trim()),
-      lecturerName: 'Dr. Lecturer',
+      lecturerName: user?.name || 'Lecturer',
     });
     setIsCreating(false);
     addToast('Assignment created', 'success');

@@ -11,6 +11,15 @@ import { useCourseStore } from '../../store/courseStore';
 import { useAuthStore } from '../../store/authStore';
 import { useToastStore } from '../../store/toastStore';
 
+const getCurrentSemester = () => {
+  const now = new Date();
+  const m = now.getMonth() + 1;
+  const y = now.getFullYear();
+  if (m >= 8) return `${y}/${y + 1} Semester 1`;
+  if (m >= 2) return `${y - 1}/${y} Semester 2`;
+  return `${y - 1}/${y} Semester 1`;
+};
+
 const Container = styled.div` padding: 1rem; `;
 
 const Header = styled.div` margin-bottom: 2.5rem; `;
@@ -329,7 +338,7 @@ const UploadPortal = () => {
       })),
       videoLink: videoLink || undefined,
       status: isLate ? 'Late' : 'Pending',
-      semester: '2025/2026 Semester 2'
+      semester: getCurrentSemester()
     };
 
     addSubmission(submissionData);
