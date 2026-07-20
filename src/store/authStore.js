@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabase';
 
 export const useAuthStore = create(
   persist(
-    (set) => ({
+    (set, get) => ({
       user: null,
       isAuthenticated: false,
       role: null,
@@ -12,6 +12,7 @@ export const useAuthStore = create(
 
       initialize: async () => {
         const { data: { session } } = await supabase.auth.getSession();
+
         if (session?.user) {
           const { data: profile } = await supabase
             .from('profiles')
@@ -24,11 +25,44 @@ export const useAuthStore = create(
             isAuthenticated: true,
             role: profile?.role || 'student'
           });
+        } else {
+          set({ user: null, isAuthenticated: false, role: null, acceptedCourses: [] });
         }
+
+        // Listen for auth state changes
+        supabase.auth.onAuthStateChange(async (event, session) => {
+          if (event === 'SIGNED_IN' && session?.user) {
+            const { data: profile } = await supabase
+              .from('profiles')
+              .select('*')
+              .eq('id', session.user.id)
+              .single();
+            set({
+              user: profile || { id: session.user.id, email: session.user.email },
+              isAuthenticated: true,
+              role: profile?.role || 'student'
+            });
+          } else if (event === 'SIGNED_OUT') {
+            set({ user: null, isAuthenticated: false, role: null, acceptedCourses: [] });
+          }
+        });
       },
 
       signUp: async ({ email, password, name, role, institution }) => {
         set({ loading: true });
+
+        // First check if user already exists
+        const { data: existingProfile } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('email', email)
+          .maybeSingle();
+
+        if (existingProfile) {
+          set({ loading: false });
+          return { error: 'An account with this email already exists. Please sign in.' };
+        }
+
         const { data, error } = await supabase.auth.signUp({
           email,
           password,
@@ -54,12 +88,22 @@ export const useAuthStore = create(
             return { error: profileError.message };
           }
 
-          set({
-            user: { id: data.user.id, name, email, role, institution },
-            isAuthenticated: true,
-            role,
-            loading: false
-          });
+          // If session exists, user is auto-confirmed; otherwise email confirmation required
+          if (data.session) {
+            set({
+              user: { id: data.user.id, name, email, role, institution },
+              isAuthenticated: true,
+              role,
+              loading: false
+            });
+          } else {
+            set({ loading: false });
+            return {
+              error: null,
+              needsEmailConfirmation: true,
+              message: 'Account created! Check your email to confirm your account before signing in.'
+            };
+          }
         }
         return { error: null };
       },

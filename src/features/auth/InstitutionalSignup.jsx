@@ -270,6 +270,8 @@ const InstitutionalSignup = () => {
     const result = await signUp({ email, password, name, role, institution });
     if (result?.error) {
       setError(result.error);
+    } else if (result?.needsEmailConfirmation) {
+      setError(result.message);
     }
   };
 
