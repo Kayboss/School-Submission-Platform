@@ -72,3 +72,20 @@ export function mapAssignments(list) { return (list || []).map(mapAssignment); }
 export function mapCourses(list) { return (list || []).map(mapCourse); }
 export function mapSubmissions(list) { return (list || []).map(mapSubmission); }
 export function mapRubrics(list) { return (list || []).map(mapRubric); }
+
+export function mapStudent(s) {
+  if (!s) return s;
+  return {
+    id: s.id,
+    name: s.name,
+    email: s.email,
+    bio: s.bio || '',
+    userId: s.userId,
+    submitted: s.submitted || 0,
+    pending: s.pending || 0,
+    overdue: s.overdue || 0,
+    courses: s.courses || [],
+  };
+}
+
+export function mapStudents(list) { return (list || []).map(mapStudent); }

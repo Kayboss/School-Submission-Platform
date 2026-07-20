@@ -311,21 +311,21 @@ const UploadPortal = () => {
       : `${diffHours}h ${diffMins}m early`;
 
     const hashInput = `${user?.name}-${selectedAssignId}-${now.toISOString()}`;
-    const mockHash = await generateHash(hashInput);
+    const fileHash = await generateHash(hashInput);
 
     const submissionData = {
       assignmentId: selectedAssignId,
       courseCode: selectedAssign.courseCode,
       assignmentTitle: selectedAssign.title,
-      studentName: user?.name || 'Zack Student',
-      studentId: user?.studentId || '05210810',
+      studentName: user?.name || 'Student',
+      studentId: user?.studentId || user?.id,
       isLate,
       timeDiscrepancy,
       files: files.map(f => ({
         name: f.sanitizedName,
         size: +(f.file.size / 1024 / 1024).toFixed(2),
         type: f.file.type,
-        hash: mockHash
+        hash: fileHash
       })),
       videoLink: videoLink || undefined,
       status: isLate ? 'Late' : 'Pending',
@@ -338,12 +338,12 @@ const UploadPortal = () => {
     setReceipt({
       id: receiptId,
       timestamp: now.toLocaleString('en-GB'),
-      student: `${user?.name || 'Zack Student'} (05210810)`,
+      student: `${user?.name || 'Student'} (${user?.studentId || user?.id})`,
       course: selectedAssign.courseCode,
       assignment: selectedAssign.title,
       files: files.map(f => f.sanitizedName),
       videoLink,
-      hash: mockHash,
+      hash: fileHash,
       isLate
     });
 

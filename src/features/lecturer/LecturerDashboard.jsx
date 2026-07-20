@@ -1,9 +1,10 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
 import { useSubmissionStore } from '../../store/submissionStore';
 import { useAssignmentStore } from '../../store/assignmentStore';
 import { useCourseStore } from '../../store/courseStore';
+import { fetchStudents } from '../../lib/supabaseService';
 import {
   Users, BookOpen, FileText, CheckCircle, Clock, AlertCircle,
   ArrowRight, TrendingUp, Award, BarChart2, DownloadCloud, Loader
@@ -151,15 +152,6 @@ const QuickInfo = styled.div` flex: 1; `;
 const QuickTitle = styled.h4` font-size: 1rem; font-weight: 800; color: ${({ theme }) => theme.colors.text.main}; `;
 const QuickMeta = styled.p` font-size: 0.8125rem; color: #55433c; font-weight: 600; `;
 
-const MOCK_STUDENTS = [
-  { id: '05210810', name: 'Zack Student' },
-  { id: '05210811', name: 'Kwame Asante' },
-  { id: '05210812', name: 'Abena Mensah' },
-  { id: '05210813', name: 'Kofi Boateng' },
-  { id: '05210814', name: 'Ama Owusu' },
-  { id: '05210815', name: 'Yaw Darko' },
-];
-
 const LecturerDashboard = () => {
   const user = useAuthStore(s => s.user);
   const submissions = useSubmissionStore(s => s.submissions);
@@ -167,6 +159,11 @@ const LecturerDashboard = () => {
   const courses = useCourseStore(s => s.courses);
   const addToast = useToastStore(s => s.addToast);
   const navigate = useNavigate();
+  const [studentCount, setStudentCount] = useState(0);
+
+  useEffect(() => {
+    fetchStudents().then(students => setStudentCount(students.length));
+  }, []);
 
   const gradeDist = useMemo(() => {
     const graded = submissions.filter(s => s.score != null);
@@ -208,7 +205,7 @@ const LecturerDashboard = () => {
   };
 
   const stats = useMemo(() => ({
-    students: MOCK_STUDENTS.length,
+    students: studentCount,
     courses: courses.length,
     assignments: assignments.length,
     total: submissions.length,

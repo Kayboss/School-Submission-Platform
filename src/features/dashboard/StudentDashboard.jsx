@@ -8,6 +8,7 @@ import { useAuthStore } from '../../store/authStore';
 import { useCourseStore } from '../../store/courseStore';
 import { useAssignmentStore } from '../../store/assignmentStore';
 import { useSubmissionStore } from '../../store/submissionStore';
+import { fetchNotifications, markNotificationRead } from '../../lib/supabaseService';
 import { useNavigate } from 'react-router-dom';
 
 const TopBar = styled.div`
@@ -215,6 +216,13 @@ const StudentDashboard = () => {
   const [activeTab, setActiveTab] = useState('todo');
   const [notifOpen, setNotifOpen] = useState(false);
   const notifRef = useRef();
+  const [dbNotifications, setDbNotifications] = useState([]);
+
+  useEffect(() => {
+    if (user?.id) {
+      fetchNotifications(user.id).then(setDbNotifications);
+    }
+  }, [user?.id]);
 
   useEffect(() => {
     const handleClick = (e) => {
@@ -224,7 +232,7 @@ const StudentDashboard = () => {
     return () => document.removeEventListener('mousedown', handleClick);
   }, []);
 
-  const studentId = '05210810';
+  const studentId = user?.studentId || user?.id;
 
   const studentSubmissions = useMemo(() =>
     submissions.filter(s => s.studentId === studentId),
@@ -275,6 +283,34 @@ const StudentDashboard = () => {
     });
     return notifs.sort((a, b) => a.type === 'overdue' ? -1 : b.type === 'overdue' ? 1 : 0);
   }, [overdueAssignments, todoAssignments, studentSubmissions, assignments]);
+
+  const allNotifications = useMemo(() => {
+    const dbNotifs = dbNotifications.map(n => ({
+      id: `db-${n.id}`,
+      type: n.type,
+      title: n.title,
+      desc: n.message,
+      dbId: n.id,
+      read: n.read,
+    }));
+    const merged = [...dbNotifs, ...notifications];
+    return merged.sort((a, b) => {
+      if (a.type === 'overdue' && b.type !== 'overdue') return -1;
+      if (b.type === 'overdue' && a.type !== 'overdue') return 1;
+      return 0;
+    });
+  }, [notifications, dbNotifications]);
+
+  const handleNotifClick = async (notif) => {
+    setNotifOpen(false);
+    if (notif.dbId && !notif.read) {
+      await markNotificationRead(notif.dbId);
+      setDbNotifications(prev => prev.map(n => n.id === notif.dbId ? { ...n, read: true } : n));
+    }
+    if (notif.assignmentId) {
+      navigate(`/submissions?assignment=${notif.assignmentId}`);
+    }
+  };
 
   const renderAssignments = (list, type) => {
     if (list.length === 0) {
@@ -341,7 +377,7 @@ const StudentDashboard = () => {
         <NotifWrapper ref={notifRef}>
           <NotifButton onClick={() => setNotifOpen(v => !v)}>
             <Bell size={20} strokeWidth={2.5} />
-            {notifications.length > 0 && <NotifBadge>{notifications.length > 9 ? '9+' : notifications.length}</NotifBadge>}
+            {allNotifications.length > 0 && <NotifBadge>{allNotifications.length > 9 ? '9+' : allNotifications.length}</NotifBadge>}
           </NotifButton>
           {notifOpen && (
             <NotifDropdown>
@@ -350,11 +386,11 @@ const StudentDashboard = () => {
                 <button onClick={() => setNotifOpen(false)} style={{ background: 'none', color: '#55433c' }}><X size={16} /></button>
               </NotifHeader>
               <NotifList>
-                {notifications.length === 0 && (
+                {allNotifications.length === 0 && (
                   <div style={{ textAlign: 'center', padding: '2rem', color: '#55433c', fontSize: '0.85rem' }}>No notifications</div>
                 )}
-                {notifications.map(n => (
-                  <NotifItem key={n.id} $unread={n.type === 'overdue'} onClick={() => { setNotifOpen(false); navigate(`/submissions?assignment=${n.assignmentId}`); }}>
+                {allNotifications.map(n => (
+                  <NotifItem key={n.id} $unread={!n.read && n.type === 'overdue'} onClick={() => handleNotifClick(n)}>
                     <NotifDot $type={n.type} />
                     <NotifContent>
                       <NotifTitle>{n.title}</NotifTitle>

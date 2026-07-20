@@ -1,5 +1,5 @@
 import { supabase } from './supabase';
-import { mapCourses, mapAssignments, mapSubmissions, mapRubrics, mapRubric } from '../utils/dataMapper';
+import { mapCourses, mapAssignments, mapSubmissions, mapRubrics, mapRubric, mapStudents } from '../utils/dataMapper';
 
 // ── Courses ──
 export async function fetchCourses() {
@@ -93,4 +93,60 @@ export async function acceptCourse(userId, courseId) {
 
 export async function removeAcceptedCourse(userId, courseId) {
   await supabase.from('accepted_courses').delete().match({ user_id: userId, course_id: courseId });
+}
+
+// ── Students (Lecturer View) ──
+export async function fetchStudents() {
+  const { data: profiles } = await supabase
+    .from('profiles')
+    .select('*')
+    .eq('role', 'student');
+
+  if (!profiles) return [];
+
+  const { data: submissions } = await supabase
+    .from('submissions')
+    .select('student_id, status, course_code');
+
+  const { data: accepted } = await supabase
+    .from('accepted_courses')
+    .select('user_id, course_id');
+
+  const { data: courses } = await supabase
+    .from('courses')
+    .select('id, code');
+
+  const courseIdToCode = {};
+  (courses || []).forEach(c => { courseIdToCode[c.id] = c.code; });
+
+  const studentMap = {};
+  (submissions || []).forEach(s => {
+    if (!studentMap[s.student_id]) {
+      studentMap[s.student_id] = { submitted: 0, pending: 0, overdue: 0 };
+    }
+    if (s.status === 'Graded') studentMap[s.student_id].submitted++;
+    else if (s.status === 'Pending') studentMap[s.student_id].pending++;
+    else if (s.status === 'Late') studentMap[s.student_id].overdue++;
+  });
+
+  const acceptedMap = {};
+  (accepted || []).forEach(a => {
+    const code = courseIdToCode[a.course_id];
+    if (!acceptedMap[a.user_id]) acceptedMap[a.user_id] = [];
+    if (code) acceptedMap[a.user_id].push(code);
+  });
+
+  const students = profiles.map(p => ({
+    id: p.student_id || p.id,
+    name: p.name,
+    email: p.email,
+    bio: '',
+    userId: p.id,
+    submitted: studentMap[p.student_id]?.submitted || 0,
+    pending: studentMap[p.student_id]?.pending || 0,
+    overdue: studentMap[p.student_id]?.overdue || 0,
+    courses: acceptedMap[p.id] || [],
+  }));
+
+  return mapStudents(students);
 }

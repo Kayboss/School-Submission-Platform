@@ -152,10 +152,11 @@ const LecturerSubmissions = () => {
 
   const handleBulkDownload = () => {
     setBulkLoading(true);
+    exportGradesCsv(submissions, filterCourse !== 'all' ? filterCourse : null);
     setTimeout(() => {
       setBulkLoading(false);
-      addToast('ZIP package compiled — download simulated', 'success');
-    }, 2000);
+      addToast('All grades exported as CSV', 'success');
+    }, 1000);
   };
 
   const handleCsvExport = () => {

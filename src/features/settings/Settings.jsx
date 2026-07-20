@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import styled from 'styled-components';
 import { useAuthStore } from '../../store/authStore';
 import { useToastStore } from '../../store/toastStore';
+import { supabase } from '../../lib/supabase';
 import { User, Bell, Shield, Save, Moon, Sun, Loader } from 'lucide-react';
 
 const Container = styled.div` padding: 1rem; `;
@@ -106,12 +107,36 @@ const Settings = () => {
   const [notifications, setNotifications] = useState({ email: true, sms: false, gradeAlerts: true });
   const [theme, setTheme] = useState('light');
   const [isSaving, setIsSaving] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
 
   const handleSave = () => {
     setIsSaving(true);
     updateProfile({ name, email });
     addToast('Settings saved successfully', 'success');
     setTimeout(() => setIsSaving(false), 600);
+  };
+
+  const handlePasswordUpdate = async () => {
+    if (!currentPassword || !newPassword) {
+      addToast('Please fill in both password fields', 'error');
+      return;
+    }
+    if (newPassword.length < 6) {
+      addToast('New password must be at least 6 characters', 'error');
+      return;
+    }
+    setIsUpdatingPassword(true);
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    if (error) {
+      addToast(error.message || 'Failed to update password', 'error');
+    } else {
+      addToast('Password updated successfully', 'success');
+      setCurrentPassword('');
+      setNewPassword('');
+    }
+    setIsUpdatingPassword(false);
   };
 
   return (
@@ -148,14 +173,14 @@ const Settings = () => {
             <CardTitle><Shield size={22} color="#b35a38" /> Security</CardTitle>
             <FormGroup>
               <Label>Current Password</Label>
-              <Input type="password" placeholder="Enter current password" />
+              <Input type="password" placeholder="Enter current password" value={currentPassword} onChange={e => setCurrentPassword(e.target.value)} />
             </FormGroup>
             <FormGroup>
               <Label>New Password</Label>
-              <Input type="password" placeholder="Enter new password" />
+              <Input type="password" placeholder="Enter new password" value={newPassword} onChange={e => setNewPassword(e.target.value)} />
             </FormGroup>
-            <SaveBtn onClick={() => addToast('Password updated (simulated)', 'success')}>
-              <Shield size={18} /> Update Password
+            <SaveBtn onClick={handlePasswordUpdate} disabled={isUpdatingPassword}>
+              {isUpdatingPassword ? <Loader className="spin" size={18} /> : <Shield size={18} />} Update Password
             </SaveBtn>
           </Card>
         </div>

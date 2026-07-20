@@ -8,6 +8,7 @@ import { useAuthStore } from '../../store/authStore';
 import { useSubmissionStore } from '../../store/submissionStore';
 import { useCourseStore } from '../../store/courseStore';
 import { useToastStore } from '../../store/toastStore';
+import { exportGradesCsv } from '../../utils/exportCsv';
 
 const Container = styled.div` padding: 1rem; `;
 
@@ -164,7 +165,7 @@ const SubmissionHistory = () => {
   const submissions = useSubmissionStore(state => state.submissions);
   const addToast = useToastStore(state => state.addToast);
   const isLecturer = user?.role === 'lecturer';
-  const studentId = user?.studentId || '05210810';
+  const studentId = user?.studentId || user?.id;
 
   const [search, setSearch] = useState('');
   const [semesterFilter, setSemesterFilter] = useState('all');
@@ -216,7 +217,13 @@ const SubmissionHistory = () => {
   }, [filtered]);
 
   const handleExport = (type) => {
-    addToast(`Exporting ${type} — simulated download ready`, 'success');
+    if (type === 'CSV') {
+      exportGradesCsv(submissions);
+      addToast('Grades exported as CSV', 'success');
+    } else {
+      exportGradesCsv(submissions);
+      addToast('Grades exported as CSV', 'success');
+    }
   };
 
   return (

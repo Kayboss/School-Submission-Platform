@@ -262,8 +262,8 @@ const AcceptBtn = styled.button`
 `;
 
 const IconBtn = styled.button`
-  background: ${({ theme }) => theme.colors.background.alt};
-  color: ${({ theme }) => theme.colors.text.muted};
+  background: ${({ theme, disabled }) => disabled ? theme.colors.border : theme.colors.background.alt};
+  color: ${({ theme, disabled }) => disabled ? '#999' : theme.colors.text.muted};
   border: none;
   width: 32px;
   height: 32px;
@@ -272,11 +272,12 @@ const IconBtn = styled.button`
   align-items: center;
   justify-content: center;
   transition: all 0.2s;
+  cursor: ${({ disabled }) => disabled ? 'not-allowed' : 'pointer'};
 
   &:hover {
-    background: ${({ theme }) => theme.colors.primary}15;
-    color: ${({ theme }) => theme.colors.primary};
-    transform: translateY(-1px);
+    background: ${({ theme, disabled }) => disabled ? theme.colors.border : `${theme.colors.primary}15`};
+    color: ${({ theme, disabled }) => disabled ? '#999' : theme.colors.primary};
+    transform: ${({ disabled }) => disabled ? 'none' : 'translateY(-1px)'};
   }
 `;
 
@@ -545,6 +546,7 @@ const CourseList = () => {
   const [editingCourse, setEditingCourse] = useState(null);
   const [assignModalCourse, setAssignModalCourse] = useState(null);
   const [acceptingCourseId, setAcceptingCourseId] = useState(null);
+  const [deletingCourseId, setDeletingCourseId] = useState(null);
 
   // Form states
   const [code, setCode] = useState('');
@@ -690,8 +692,8 @@ const CourseList = () => {
                   <IconBtn onClick={() => handleOpenEditModal(course)} title="Edit Course">
                     <Edit2 size={16} />
                   </IconBtn>
-                  <IconBtn onClick={() => deleteCourse(course.id)} title="Delete Course" style={{ color: '#b35a38' }}>
-                    <Trash2 size={16} />
+                  <IconBtn onClick={async () => { setDeletingCourseId(course.id); await deleteCourse(course.id); setDeletingCourseId(null); }} title="Delete Course" disabled={deletingCourseId === course.id} style={{ color: deletingCourseId === course.id ? '#999' : '#b35a38' }}>
+                    {deletingCourseId === course.id ? <Loader className="spin" size={16} /> : <Trash2 size={16} />}
                   </IconBtn>
                 </div>
               )}

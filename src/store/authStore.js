@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { supabase } from '../lib/supabase';
+import { fetchAcceptedCourses, acceptCourse as dbAcceptCourse, removeAcceptedCourse as dbRemoveAcceptedCourse } from '../lib/supabaseService';
 
 export const useAuthStore = create(
   persist(
@@ -25,6 +26,10 @@ export const useAuthStore = create(
             isAuthenticated: true,
             role: profile?.role || 'student'
           });
+
+          // Load accepted courses from DB
+          const courses = await fetchAcceptedCourses(session.user.id);
+          set({ acceptedCourses: courses });
         } else {
           set({ user: null, isAuthenticated: false, role: null, acceptedCourses: [] });
         }
@@ -42,6 +47,9 @@ export const useAuthStore = create(
               isAuthenticated: true,
               role: profile?.role || 'student'
             });
+
+            const courses = await fetchAcceptedCourses(session.user.id);
+            set({ acceptedCourses: courses });
           } else if (event === 'SIGNED_OUT') {
             set({ user: null, isAuthenticated: false, role: null, acceptedCourses: [] });
           }
@@ -160,15 +168,25 @@ export const useAuthStore = create(
 
       acceptedCourses: [],
 
-      acceptCourse: (courseId) => set((state) => ({
-        acceptedCourses: state.acceptedCourses.includes(courseId)
-          ? state.acceptedCourses
-          : [...state.acceptedCourses, courseId]
-      })),
+      acceptCourse: async (courseId) => {
+        const userId = get().user?.id;
+        if (!userId) return;
+        set((state) => ({
+          acceptedCourses: state.acceptedCourses.includes(courseId)
+            ? state.acceptedCourses
+            : [...state.acceptedCourses, courseId]
+        }));
+        await dbAcceptCourse(userId, courseId);
+      },
 
-      removeAcceptedCourse: (courseId) => set((state) => ({
-        acceptedCourses: state.acceptedCourses.filter(id => id !== courseId)
-      }))
+      removeAcceptedCourse: async (courseId) => {
+        const userId = get().user?.id;
+        if (!userId) return;
+        set((state) => ({
+          acceptedCourses: state.acceptedCourses.filter(id => id !== courseId)
+        }));
+        await dbRemoveAcceptedCourse(userId, courseId);
+      }
     }),
     {
       name: 'tatu-auth-storage',
