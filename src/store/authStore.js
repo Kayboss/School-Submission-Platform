@@ -15,11 +15,13 @@ export const useAuthStore = create(
         const { data: { session } } = await supabase.auth.getSession();
 
         if (session?.user) {
-          const { data: profile } = await supabase
+          const { data: profile, error } = await supabase
             .from('profiles')
             .select('*')
             .eq('id', session.user.id)
-            .single();
+            .maybeSingle();
+
+          if (error) console.error('initialize profile fetch error:', error);
 
           set({
             user: profile || { id: session.user.id, email: session.user.email },
@@ -27,7 +29,6 @@ export const useAuthStore = create(
             role: profile?.role || 'student'
           });
 
-          // Load accepted courses from DB
           const courses = await fetchAcceptedCourses(session.user.id);
           set({ acceptedCourses: courses });
         } else {
@@ -37,11 +38,14 @@ export const useAuthStore = create(
         // Listen for auth state changes
         supabase.auth.onAuthStateChange(async (event, session) => {
           if (event === 'SIGNED_IN' && session?.user) {
-            const { data: profile } = await supabase
+            const { data: profile, error } = await supabase
               .from('profiles')
               .select('*')
               .eq('id', session.user.id)
-              .single();
+              .maybeSingle();
+
+            if (error) console.error('onAuthStateChange profile fetch error:', error);
+
             set({
               user: profile || { id: session.user.id, email: session.user.email },
               isAuthenticated: true,
@@ -129,11 +133,13 @@ export const useAuthStore = create(
         }
 
         if (data.user) {
-          const { data: profile } = await supabase
+          const { data: profile, error } = await supabase
             .from('profiles')
             .select('*')
             .eq('id', data.user.id)
-            .single();
+            .maybeSingle();
+
+          if (error) console.error('login profile fetch error:', error);
 
           set({
             user: profile || { id: data.user.id, email: data.user.email },
@@ -159,7 +165,8 @@ export const useAuthStore = create(
         const user = useAuthStore.getState().user;
         if (!user?.id) return;
 
-        await supabase.from('profiles').update(updates).eq('id', user.id);
+        const { error } = await supabase.from('profiles').update(updates).eq('id', user.id);
+        if (error) console.error('updateProfile error:', error);
 
         set((state) => ({
           user: { ...state.user, ...updates }

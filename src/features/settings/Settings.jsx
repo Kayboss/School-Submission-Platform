@@ -112,9 +112,11 @@ const Settings = () => {
   const [newPassword, setNewPassword] = useState('');
   const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
 
-  const handleSave = () => {
+  const handleSave = async () => {
     setIsSaving(true);
-    updateProfile({ name, email, notification_preferences: notifications, theme });
+    await updateProfile({ name, email });
+    // Save preferences separately so missing columns don't break name/email update
+    await supabase.from('profiles').update({ notification_preferences: notifications, theme }).eq('id', user?.id);
     addToast('Settings saved successfully', 'success');
     setTimeout(() => setIsSaving(false), 600);
   };
