@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { supabase } from '../lib/supabase';
 import { fetchSubmissions, addSubmission, gradeSubmission } from '../lib/supabaseService';
+import { logActivity, ACTIONS } from '../lib/activityService';
 
 export const useSubmissionStore = create((set) => ({
   submissions: [],
@@ -63,13 +64,21 @@ export const useSubmissionStore = create((set) => ({
       hash: submission.hash
     });
 
-    if (data) set((state) => ({ submissions: [data, ...state.submissions] }));
+    if (data) {
+      set((state) => ({ submissions: [data, ...state.submissions] }));
+      logActivity(ACTIONS.SUBMIT_ASSIGNMENT, 'submission', data.id, {
+        courseCode: submission.courseCode, assignmentId: submission.assignmentId
+      });
+    }
   },
 
   gradeSubmission: async (id, score, feedback, rubricScores) => {
     const data = await gradeSubmission(id, score, feedback, rubricScores);
-    if (data) set((state) => ({
-      submissions: state.submissions.map((sub) => sub.id === id ? data : sub)
-    }));
+    if (data) {
+      set((state) => ({
+        submissions: state.submissions.map((sub) => sub.id === id ? data : sub)
+      }));
+      logActivity(ACTIONS.GRADE_SUBMISSION, 'submission', id, { score, hasFeedback: !!feedback });
+    }
   }
 }));

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
 import { 
   LayoutDashboard, 
@@ -12,11 +12,13 @@ import {
   Edit3,
   Settings,
   LogOut,
+  Shield,
   Menu,
   X
 } from 'lucide-react';
 import { Link, useLocation, Outlet, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
+import { logActivity, ACTIONS } from '../../lib/activityService';
 
 const LayoutContainer = styled.div`
   display: flex;
@@ -189,6 +191,10 @@ const Layout = () => {
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
+  useEffect(() => {
+    logActivity(ACTIONS.PAGE_VIEW, 'page', location.pathname, { path: location.pathname });
+  }, [location.pathname]);
+
   const handleLogout = () => {
     logout();
     navigate('/');
@@ -238,6 +244,11 @@ const Layout = () => {
                 <Archive size={18} /> Archive
               </NavLink>
             </>
+          )}
+          {user?.role === 'admin' && (
+            <NavLink to="/admin" $active={location.pathname === '/admin'} onClick={() => setSidebarOpen(false)}>
+              <Shield size={18} /> Research Dashboard
+            </NavLink>
           )}
           <NavLink to="/settings" $active={location.pathname === '/settings'} onClick={() => setSidebarOpen(false)}>
             <Settings size={18} /> Settings

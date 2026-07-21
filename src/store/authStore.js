@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { supabase } from '../lib/supabase';
 import { fetchAcceptedCourses, acceptCourse as dbAcceptCourse, removeAcceptedCourse as dbRemoveAcceptedCourse } from '../lib/supabaseService';
+import { logActivity, startSession, endSession, ACTIONS } from '../lib/activityService';
 
 export const useAuthStore = create(
   persist(
@@ -10,6 +11,7 @@ export const useAuthStore = create(
       isAuthenticated: false,
       role: null,
       loading: false,
+      sessionId: null,
 
       initialize: async () => {
         const { data: { session } } = await supabase.auth.getSession();
@@ -147,17 +149,24 @@ export const useAuthStore = create(
             role: profile?.role || 'student',
             loading: false
           });
+
+          logActivity(ACTIONS.LOGIN, 'auth', data.user.id, { email });
+          startSession().then(sid => set({ sessionId: sid }));
         }
         return { error: null };
       },
 
       logout: async () => {
+        const sid = get().sessionId;
+        await endSession(sid);
+        logActivity(ACTIONS.LOGOUT, 'auth');
         await supabase.auth.signOut();
         set({
           user: null,
           isAuthenticated: false,
           role: null,
-          acceptedCourses: []
+          acceptedCourses: [],
+          sessionId: null
         });
       },
 

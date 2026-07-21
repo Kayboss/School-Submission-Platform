@@ -31,6 +31,7 @@ import LecturerLayout from './features/lecturer/LecturerLayout';
 import LecturerSubmissions from './features/lecturer/LecturerSubmissions';
 import LecturerAssignments from './features/lecturer/LecturerAssignments';
 import LecturerStudents from './features/lecturer/LecturerStudents';
+import AdminDashboard from './features/admin/AdminDashboard';
 import { ToastContainer } from './components/ui/ToastContainer';
 
 
@@ -76,7 +77,9 @@ const CheckAuth = ({ children }) => {
 // Dashboard Switcher based on User Role
 const Dashboard = () => {
   const role = useAuthStore(state => state.role);
-  return role === 'lecturer' ? <LecturerDashboard /> : <StudentDashboard />;
+  if (role === 'admin') return <AdminDashboard />;
+  if (role === 'lecturer') return <LecturerDashboard />;
+  return <StudentDashboard />;
 };
 
 const App = () => {
@@ -132,6 +135,7 @@ const App = () => {
                 <Route path="assignments" element={<LecturerAssignments />} />
                 <Route path="students" element={<LecturerStudents />} />
               </Route>
+              <Route path="admin" element={<AdminDashboard />} />
             </Route>
 
             {/* Fallback */}
