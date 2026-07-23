@@ -222,6 +222,7 @@ const getCountdown = (dueDate) => {
 const StudentDashboard = () => {
   const user = useAuthStore(state => state.user);
   const acceptedCourses = useAuthStore(state => state.acceptedCourses);
+  const viewedPages = useAuthStore(state => state.viewedPages);
   const assignments = useAssignmentStore(state => state.assignments);
   const submissions = useSubmissionStore(state => state.submissions);
   const navigate = useNavigate();
@@ -386,7 +387,7 @@ const StudentDashboard = () => {
   return (
     <>
       <TopBar>
-        {acceptedCourses.length > 0 && studentSubmissions.length > 0 && !user?.post_interview_completed && (
+        {acceptedCourses.length > 0 && viewedPages.includes('/assignments') && viewedPages.includes('/submissions') && !user?.post_interview_completed && (
           <RateUsButton onClick={() => navigate('/post-interview')}>
             <Star size={16} strokeWidth={2.5} /> <span>Rate Us</span>
           </RateUsButton>

@@ -26,6 +26,7 @@ export const useAuthStore = create(
       loading: false,
       sessionId: null,
       acceptedCourses: [],
+      viewedPages: [],
 
       initialize: async () => {
         try {
@@ -228,7 +229,14 @@ export const useAuthStore = create(
           acceptedCourses: state.acceptedCourses.filter(id => id !== courseId)
         }));
         await dbRemoveAcceptedCourse(userId, courseId);
-      }
+      },
+
+      trackPageView: (path) => {
+        set((state) => {
+          if (state.viewedPages.includes(path)) return state;
+          return { viewedPages: [...state.viewedPages, path] };
+        });
+      },
     }),
     {
       name: 'tatu-auth-storage',
@@ -236,6 +244,7 @@ export const useAuthStore = create(
         user: state.user,
         isAuthenticated: state.isAuthenticated,
         acceptedCourses: state.acceptedCourses,
+        viewedPages: state.viewedPages,
         sessionId: state.sessionId
       }),
     }

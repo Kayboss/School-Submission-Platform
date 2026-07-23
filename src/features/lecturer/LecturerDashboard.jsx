@@ -164,6 +164,7 @@ const QuickMeta = styled.p` font-size: 0.8125rem; color: #55433c; font-weight: 6
 
 const LecturerDashboard = () => {
   const user = useAuthStore(s => s.user);
+  const viewedPages = useAuthStore(s => s.viewedPages);
   const submissions = useSubmissionStore(s => s.submissions);
   const assignments = useAssignmentStore(s => s.assignments);
   const courses = useCourseStore(s => s.courses);
@@ -236,7 +237,7 @@ const LecturerDashboard = () => {
           <Greeting>Welcome back, {user?.name?.split(' ')[0]}!</Greeting>
           <SubGreeting>Here's an overview of your academic system.</SubGreeting>
         </div>
-        {!user?.post_interview_completed && assignments.length > 0 && submissions.length > 0 && (
+        {!user?.post_interview_completed && courses.length > 0 && viewedPages.includes('/lecturer/assignments') && viewedPages.includes('/lecturer/submissions') && (
           <RateUsBtn onClick={() => navigate('/post-interview')}>
             <Star size={16} strokeWidth={2.5} /> Rate Us
           </RateUsBtn>

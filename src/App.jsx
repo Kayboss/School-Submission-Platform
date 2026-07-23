@@ -106,6 +106,19 @@ const Dashboard = () => {
 
 // Auto-logout after 10 minutes of inactivity
 const IDLE_TIMEOUT = 10 * 60 * 1000;
+
+// Track which pages the user has visited (for post-interview trigger)
+const PageTracker = () => {
+  const location = useLocation();
+  const trackPageView = useAuthStore(s => s.trackPageView);
+
+  useEffect(() => {
+    trackPageView(location.pathname);
+  }, [location.pathname, trackPageView]);
+
+  return null;
+};
+
 const IdleLogout = () => {
   const isAuthenticated = useAuthStore(s => s.isAuthenticated);
   const logout = useAuthStore(s => s.logout);
@@ -159,6 +172,7 @@ const App = () => {
         <GlobalStyles />
         <BrowserRouter>
           <IdleLogout />
+          <PageTracker />
           <ToastContainer />
           <Routes>
             {/* Public Routes */}
