@@ -274,6 +274,32 @@ const LikertHeaderCell = styled.span`
   text-transform: uppercase;
 `;
 
+const LikertLegend = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem 1.2rem;
+  padding: 0.75rem 1rem;
+  background: ${({ theme }) => theme.colors.background.main};
+  border-radius: ${({ theme }) => theme.borderRadius.medium};
+  margin-bottom: 1.25rem;
+`;
+
+const LegendItem = styled.span`
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.75rem;
+  color: ${({ theme }) => theme.colors.text.muted};
+`;
+
+const LegendDot = styled.span`
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: ${({ $color }) => $color};
+  flex-shrink: 0;
+`;
+
 const TextArea = styled.textarea`
   width: 100%;
   min-height: 100px;
@@ -554,6 +580,15 @@ const PostInterviewWizard = () => {
       <Subtitle style={{ marginBottom: '1rem' }}>
         Please indicate your level of agreement with each statement.
       </Subtitle>
+
+      <LikertLegend>
+        <LegendItem><LegendDot $color="#4a7c59" /> <strong>SA</strong>&nbsp;= Strongly Agree</LegendItem>
+        <LegendItem><LegendDot $color="#6a9f78" /> <strong>A</strong>&nbsp;= Agree</LegendItem>
+        <LegendItem><LegendDot $color="#daa520" /> <strong>N</strong>&nbsp;= Neutral</LegendItem>
+        <LegendItem><LegendDot $color="#d4856a" /> <strong>D</strong>&nbsp;= Disagree</LegendItem>
+        <LegendItem><LegendDot $color="#b35a38" /> <strong>SD</strong>&nbsp;= Strongly Disagree</LegendItem>
+      </LikertLegend>
+
       <LikertTable>
         <LikertHeader>
           <LikertHeaderLabel />
