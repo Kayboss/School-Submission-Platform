@@ -538,6 +538,8 @@ const CourseList = () => {
   const acceptedCourses = useAuthStore(state => state.acceptedCourses);
   const acceptCourse = useAuthStore(state => state.acceptCourse);
   const isLecturer = user?.role === 'lecturer';
+  const isAdmin = user?.role === 'admin';
+  const canManageCourses = isLecturer || isAdmin;
 
   const { courses, addCourse, updateCourse, deleteCourse, updateCourseImage } = useCourseStore();
   const assignments = useAssignmentStore(state => state.assignments);
@@ -562,7 +564,7 @@ const CourseList = () => {
     setCode('');
     setName('');
     // Prefill instructor name if the lecturer is adding the course
-    setInstructor(isLecturer ? user.name : '');
+    setInstructor(canManageCourses ? user.name : '');
     setCredits('3.0');
     setSchedule('');
     setAccent(PRESET_COLORS[0]);
@@ -613,7 +615,7 @@ const CourseList = () => {
           <Title>Academic Courses</Title>
           <Subtitle>Your personalized curriculum for the Semester.</Subtitle>
         </HeaderInfo>
-        {isLecturer && (
+        {canManageCourses && (
           <AddCourseBtn onClick={handleOpenAddModal}>
             <Plus size={20} /> Add Course
           </AddCourseBtn>
@@ -625,7 +627,7 @@ const CourseList = () => {
           <CourseCard key={course.id}>
             <CardImage accent={course.accent} $image={course.image}>
               <BookOpen size={64} strokeWidth={1.5} />
-              {isLecturer && (
+              {canManageCourses && (
                 <ImageUploadBtn
                   onClick={(e) => { e.stopPropagation(); document.getElementById(`img-upload-${course.id}`).click(); }}
                   title="Change featured image"
@@ -673,7 +675,7 @@ const CourseList = () => {
               </AssignLink>
             </CardContent>
             <CardFooter>
-              {!isLecturer && (
+              {!canManageCourses && (
                 <AcceptBtn
                   $accepted={acceptedCourses.includes(course.id)}
                   onClick={() => { setAcceptingCourseId(course.id); acceptCourse(course.id); setTimeout(() => setAcceptingCourseId(null), 600); }}
@@ -688,7 +690,7 @@ const CourseList = () => {
                   )}
                 </AcceptBtn>
               )}
-              {isLecturer && (
+              {canManageCourses && (
                 <div style={{ display: 'flex', gap: '0.5rem' }}>
                   <IconBtn onClick={() => handleOpenEditModal(course)} title="Edit Course">
                     <Edit2 size={16} />
