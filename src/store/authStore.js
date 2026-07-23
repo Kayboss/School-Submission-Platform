@@ -10,20 +10,11 @@ async function getProfile(userId) {
     .select('*')
     .eq('id', userId)
     .maybeSingle();
-  if (error) console.error('Profile fetch error:', error);
+  if (error) {
+    console.error('Profile fetch error:', error.message);
+    return null;
+  }
   return data;
-}
-
-function userFromSession(sessionUser, profile) {
-  return {
-    id: sessionUser.id,
-    name: profile?.name || sessionUser.user_metadata?.name || sessionUser.email,
-    email: profile?.email || sessionUser.email,
-    role: profile?.role || sessionUser.user_metadata?.role || 'student',
-    institution: profile?.institution || sessionUser.user_metadata?.institution || '',
-    student_id: profile?.student_id || null,
-    onboarding_completed: profile?.onboarding_completed ?? true,
-  };
 }
 
 export const useAuthStore = create(
@@ -45,8 +36,19 @@ export const useAuthStore = create(
           }
 
           const profile = await getProfile(session.user.id);
-          const u = userFromSession(session.user, profile);
-          set({ user: u, isAuthenticated: true, role: u.role });
+          const meta = session.user.user_metadata || {};
+
+          const user = {
+            id: session.user.id,
+            name: profile?.name || meta.name || session.user.email,
+            email: profile?.email || session.user.email,
+            role: profile?.role || meta.role || 'student',
+            institution: profile?.institution || meta.institution || '',
+            student_id: profile?.student_id || null,
+            onboarding_completed: profile?.onboarding_completed ?? true,
+          };
+
+          set({ user, isAuthenticated: true, role: user.role });
 
           fetchAcceptedCourses(session.user.id)
             .then(courses => set({ acceptedCourses: courses }))
@@ -60,8 +62,25 @@ export const useAuthStore = create(
           if (event === 'SIGNED_IN' && session?.user) {
             try {
               const profile = await getProfile(session.user.id);
-              const u = userFromSession(session.user, profile);
-              set({ user: u, isAuthenticated: true, role: u.role });
+              const meta = session.user.user_metadata || {};
+
+              if (!profile) {
+                console.warn('No profile found for', session.user.id, '- keeping current user state');
+                return;
+              }
+
+              const user = {
+                id: session.user.id,
+                name: profile.name || meta.name || session.user.email,
+                email: profile.email || session.user.email,
+                role: profile.role || meta.role || 'student',
+                institution: profile.institution || meta.institution || '',
+                student_id: profile.student_id || null,
+                onboarding_completed: profile.onboarding_completed ?? true,
+              };
+
+              set({ user, isAuthenticated: true, role: user.role });
+
               fetchAcceptedCourses(session.user.id)
                 .then(courses => set({ acceptedCourses: courses }))
                 .catch(() => {});
@@ -111,18 +130,23 @@ export const useAuthStore = create(
           });
 
           if (profileError) {
+            console.error('Profile insert error:', profileError.message);
             set({ loading: false });
             return { error: profileError.message };
           }
 
           if (data.session) {
-            const u = {
-              id: data.user.id, name, email, role,
-              institution: institution || 'Tamale Technical University',
-              student_id: studentId || null,
-              onboarding_completed: true
-            };
-            set({ user: u, isAuthenticated: true, role, loading: false });
+            set({
+              user: {
+                id: data.user.id, name, email, role,
+                institution: institution || 'Tamale Technical University',
+                student_id: studentId || null,
+                onboarding_completed: true
+              },
+              isAuthenticated: true,
+              role,
+              loading: false
+            });
             logActivity(ACTIONS.LOGIN, 'auth', data.user.id, { email });
             startSession().then(sid => set({ sessionId: sid }));
           } else {
@@ -148,8 +172,19 @@ export const useAuthStore = create(
 
         if (data.user) {
           const profile = await getProfile(data.user.id);
-          const u = userFromSession(data.user, profile);
-          set({ user: u, isAuthenticated: true, role: u.role, loading: false });
+          const meta = data.user.user_metadata || {};
+
+          const user = {
+            id: data.user.id,
+            name: profile?.name || meta.name || data.user.email,
+            email: profile?.email || data.user.email,
+            role: profile?.role || meta.role || 'student',
+            institution: profile?.institution || meta.institution || '',
+            student_id: profile?.student_id || null,
+            onboarding_completed: profile?.onboarding_completed ?? true,
+          };
+
+          set({ user, isAuthenticated: true, role: user.role, loading: false });
           logActivity(ACTIONS.LOGIN, 'auth', data.user.id, { email });
           startSession().then(sid => set({ sessionId: sid }));
         }
