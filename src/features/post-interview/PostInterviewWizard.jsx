@@ -427,7 +427,6 @@ const STUDENT_SECTIONS = {
     'The system was easy to learn.',
     'The interface was user-friendly.',
     'Uploading files was easy.',
-    'Retrieving files was easy.',
     'Navigation between pages was simple.',
     'The system responded quickly.',
   ],
