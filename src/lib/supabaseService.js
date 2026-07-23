@@ -105,7 +105,7 @@ export async function fetchAcceptedCourses(userId) {
 }
 
 export async function acceptCourse(userId, courseId) {
-  await supabase.from('accepted_courses').insert({ user_id: userId, course_id: courseId });
+  await supabase.from('accepted_courses').upsert({ user_id: userId, course_id: courseId }, { onConflict: 'user_id,course_id' });
 }
 
 export async function removeAcceptedCourse(userId, courseId) {
