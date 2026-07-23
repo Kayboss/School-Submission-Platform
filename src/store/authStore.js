@@ -48,15 +48,13 @@ export const useAuthStore = create(
               });
             }
           } else {
-            // Auto-complete onboarding for existing users who already have data
-            if (!profile.onboarding_completed && role === 'student') {
-              const { count } = await supabase.from('submissions').select('id', { count: 'exact', head: true }).eq('user_id', session.user.id);
-              const { count: courseCount } = await supabase.from('accepted_courses').select('id', { count: 'exact', head: true }).eq('user_id', session.user.id);
-              const accountAge = Date.now() - new Date(profile.created_at).getTime();
-              const oneDay = 24 * 60 * 60 * 1000;
-              if ((count > 0) || (courseCount > 0) || (accountAge > oneDay)) {
-                profile.onboarding_completed = true;
+            // Auto-complete onboarding for ALL existing users with profiles.
+            // Only brand-new student signups (flag set in signUp) should see onboarding.
+            if (!profile.onboarding_completed) {
+              const pendingOnboarding = localStorage.getItem('tatu_pending_onboarding');
+              if (!pendingOnboarding || pendingOnboarding !== session.user.id) {
                 await supabase.from('profiles').update({ onboarding_completed: true }).eq('id', session.user.id);
+                profile.onboarding_completed = true;
               }
             }
             set({
@@ -84,6 +82,14 @@ export const useAuthStore = create(
             if (error) console.error('onAuthStateChange profile fetch error:', error);
 
             if (profile) {
+              // Also auto-complete onboarding here as a safety net
+              if (!profile.onboarding_completed) {
+                const pendingOnboarding = localStorage.getItem('tatu_pending_onboarding');
+                if (!pendingOnboarding || pendingOnboarding !== session.user.id) {
+                  await supabase.from('profiles').update({ onboarding_completed: true }).eq('id', session.user.id);
+                  profile.onboarding_completed = true;
+                }
+              }
               set({
                 user: profile,
                 isAuthenticated: true,
@@ -142,6 +148,9 @@ export const useAuthStore = create(
 
           // If session exists, user is auto-confirmed; otherwise email confirmation required
           if (data.session) {
+            if (role === 'student') {
+              localStorage.setItem('tatu_pending_onboarding', data.user.id);
+            }
             set({
               user: { id: data.user.id, name, email, role, institution, student_id: studentId || null, onboarding_completed: role === 'student' ? false : true },
               isAuthenticated: true,

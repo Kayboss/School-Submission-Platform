@@ -454,6 +454,7 @@ const OnboardingWizard = () => {
       if (profileError) throw profileError;
 
       useAuthStore.setState({ user: { ...user, onboarding_completed: true } });
+      localStorage.removeItem('tatu_pending_onboarding');
       addToast('Questionnaire submitted successfully!', 'success');
       setStep(4);
     } catch (err) {
