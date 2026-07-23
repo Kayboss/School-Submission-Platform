@@ -4,6 +4,28 @@ import { supabase } from '../lib/supabase';
 import { fetchAcceptedCourses, acceptCourse as dbAcceptCourse, removeAcceptedCourse as dbRemoveAcceptedCourse } from '../lib/supabaseService';
 import { logActivity, startSession, endSession, ACTIONS } from '../lib/activityService';
 
+async function getProfile(userId) {
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('*')
+    .eq('id', userId)
+    .maybeSingle();
+  if (error) console.error('Profile fetch error:', error);
+  return data;
+}
+
+function userFromSession(sessionUser, profile) {
+  return {
+    id: sessionUser.id,
+    name: profile?.name || sessionUser.user_metadata?.name || sessionUser.email,
+    email: profile?.email || sessionUser.email,
+    role: profile?.role || sessionUser.user_metadata?.role || 'student',
+    institution: profile?.institution || sessionUser.user_metadata?.institution || '',
+    student_id: profile?.student_id || null,
+    onboarding_completed: profile?.onboarding_completed ?? true,
+  };
+}
+
 export const useAuthStore = create(
   persist(
     (set, get) => ({
@@ -12,64 +34,37 @@ export const useAuthStore = create(
       role: null,
       loading: false,
       sessionId: null,
+      acceptedCourses: [],
 
       initialize: async () => {
         try {
           const { data: { session } } = await supabase.auth.getSession();
-
-          if (session?.user) {
-            const { data: profile, error } = await supabase
-              .from('profiles')
-              .select('*')
-              .eq('id', session.user.id)
-              .maybeSingle();
-
-            if (error) console.error('initialize profile fetch error:', error);
-
-            const role = profile?.role || session.user.user_metadata?.role || 'student';
-
-            set({
-              user: profile || { id: session.user.id, email: session.user.email, name: session.user.user_metadata?.name },
-              isAuthenticated: true,
-              role
-            });
-
-            try {
-              const courses = await fetchAcceptedCourses(session.user.id);
-              set({ acceptedCourses: courses });
-            } catch (e) {
-              console.error('fetchAcceptedCourses error:', e);
-            }
-          } else {
+          if (!session?.user) {
             set({ user: null, isAuthenticated: false, role: null, acceptedCourses: [] });
+            return;
           }
+
+          const profile = await getProfile(session.user.id);
+          const u = userFromSession(session.user, profile);
+          set({ user: u, isAuthenticated: true, role: u.role });
+
+          fetchAcceptedCourses(session.user.id)
+            .then(courses => set({ acceptedCourses: courses }))
+            .catch(() => {});
         } catch (e) {
           console.error('initialize error:', e);
+          set({ user: null, isAuthenticated: false, role: null, acceptedCourses: [] });
         }
 
-        // Listen for auth state changes
         supabase.auth.onAuthStateChange(async (event, session) => {
           if (event === 'SIGNED_IN' && session?.user) {
             try {
-              const { data: profile } = await supabase
-                .from('profiles')
-                .select('*')
-                .eq('id', session.user.id)
-                .maybeSingle();
-
-              if (profile) {
-                set({
-                  user: profile,
-                  isAuthenticated: true,
-                  role: profile.role || 'student'
-                });
-                try {
-                  const courses = await fetchAcceptedCourses(session.user.id);
-                  set({ acceptedCourses: courses });
-                } catch (e) {
-                  console.error('onAuthStateChange fetchAcceptedCourses error:', e);
-                }
-              }
+              const profile = await getProfile(session.user.id);
+              const u = userFromSession(session.user, profile);
+              set({ user: u, isAuthenticated: true, role: u.role });
+              fetchAcceptedCourses(session.user.id)
+                .then(courses => set({ acceptedCourses: courses }))
+                .catch(() => {});
             } catch (e) {
               console.error('onAuthStateChange error:', e);
             }
@@ -121,12 +116,15 @@ export const useAuthStore = create(
           }
 
           if (data.session) {
-            set({
-              user: { id: data.user.id, name, email, role, institution, student_id: studentId || null, onboarding_completed: true },
-              isAuthenticated: true,
-              role,
-              loading: false
-            });
+            const u = {
+              id: data.user.id, name, email, role,
+              institution: institution || 'Tamale Technical University',
+              student_id: studentId || null,
+              onboarding_completed: true
+            };
+            set({ user: u, isAuthenticated: true, role, loading: false });
+            logActivity(ACTIONS.LOGIN, 'auth', data.user.id, { email });
+            startSession().then(sid => set({ sessionId: sid }));
           } else {
             set({ loading: false });
             return {
@@ -141,10 +139,7 @@ export const useAuthStore = create(
 
       login: async ({ email, password }) => {
         set({ loading: true });
-        const { data, error } = await supabase.auth.signInWithPassword({
-          email,
-          password
-        });
+        const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
         if (error) {
           set({ loading: false });
@@ -152,19 +147,9 @@ export const useAuthStore = create(
         }
 
         if (data.user) {
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', data.user.id)
-            .maybeSingle();
-
-          set({
-            user: profile || { id: data.user.id, email: data.user.email },
-            isAuthenticated: true,
-            role: profile?.role || 'student',
-            loading: false
-          });
-
+          const profile = await getProfile(data.user.id);
+          const u = userFromSession(data.user, profile);
+          set({ user: u, isAuthenticated: true, role: u.role, loading: false });
           logActivity(ACTIONS.LOGIN, 'auth', data.user.id, { email });
           startSession().then(sid => set({ sessionId: sid }));
         }
@@ -176,13 +161,7 @@ export const useAuthStore = create(
         await endSession(sid);
         logActivity(ACTIONS.LOGOUT, 'auth');
         await supabase.auth.signOut();
-        set({
-          user: null,
-          isAuthenticated: false,
-          role: null,
-          acceptedCourses: [],
-          sessionId: null
-        });
+        set({ user: null, isAuthenticated: false, role: null, acceptedCourses: [], sessionId: null });
       },
 
       updateProfile: async (updates) => {
@@ -192,12 +171,8 @@ export const useAuthStore = create(
         const { error } = await supabase.from('profiles').update(updates).eq('id', user.id);
         if (error) console.error('updateProfile error:', error);
 
-        set((state) => ({
-          user: { ...state.user, ...updates }
-        }));
+        set((state) => ({ user: { ...state.user, ...updates } }));
       },
-
-      acceptedCourses: [],
 
       acceptCourse: async (courseId) => {
         const userId = get().user?.id;
