@@ -434,7 +434,6 @@ const STUDENT_SECTIONS = {
   B: [
     'The system reduced my dependence on flash drives.',
     'The system improved assignment submission.',
-    'My files are easier to locate.',
     'The system provides secure storage for assignments.',
     'The system improved my organization of academic files.',
     'I would continue using this system.',
