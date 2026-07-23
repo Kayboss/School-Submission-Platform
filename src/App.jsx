@@ -79,8 +79,20 @@ const CheckAuth = ({ children }) => {
   return children;
 };
 
-// Onboarding Guard — currently disabled
+// Redirects students who haven't completed onboarding questionnaire
 const OnboardingGuard = ({ children }) => {
+  const user = useAuthStore(s => s.user);
+  const location = useLocation();
+
+  if (!user) return children;
+
+  const isStudent = user.role === 'student' || !user.role;
+  const needsOnboarding = isStudent && user.onboarding_completed === false;
+
+  if (needsOnboarding && location.pathname !== '/onboarding') {
+    return <Navigate to="/onboarding" replace />;
+  }
+
   return children;
 };
 

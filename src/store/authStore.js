@@ -45,7 +45,7 @@ export const useAuthStore = create(
             role: profile?.role || meta.role || 'student',
             institution: profile?.institution || meta.institution || '',
             student_id: profile?.student_id || null,
-            onboarding_completed: profile?.onboarding_completed ?? true,
+            onboarding_completed: profile?.onboarding_completed ?? false,
           };
 
           set({ user, isAuthenticated: true, role: user.role });
@@ -76,7 +76,7 @@ export const useAuthStore = create(
                 role: profile.role || meta.role || 'student',
                 institution: profile.institution || meta.institution || '',
                 student_id: profile.student_id || null,
-                onboarding_completed: profile.onboarding_completed ?? true,
+                onboarding_completed: profile.onboarding_completed ?? false,
               };
 
               set({ user, isAuthenticated: true, role: user.role });
@@ -118,7 +118,8 @@ export const useAuthStore = create(
           return { error: error.message };
         }
 
-        if (data.user) {
+          if (data.user) {
+          const needsOnboarding = role === 'student';
           const { error: profileError } = await supabase.from('profiles').insert({
             id: data.user.id,
             name,
@@ -126,7 +127,7 @@ export const useAuthStore = create(
             role,
             institution: institution || 'Tamale Technical University',
             student_id: studentId || null,
-            onboarding_completed: true
+            onboarding_completed: !needsOnboarding
           });
 
           if (profileError) {
@@ -141,7 +142,7 @@ export const useAuthStore = create(
                 id: data.user.id, name, email, role,
                 institution: institution || 'Tamale Technical University',
                 student_id: studentId || null,
-                onboarding_completed: true
+                onboarding_completed: !needsOnboarding
               },
               isAuthenticated: true,
               role,
@@ -181,7 +182,7 @@ export const useAuthStore = create(
             role: profile?.role || meta.role || 'student',
             institution: profile?.institution || meta.institution || '',
             student_id: profile?.student_id || null,
-            onboarding_completed: profile?.onboarding_completed ?? true,
+            onboarding_completed: profile?.onboarding_completed ?? false,
           };
 
           set({ user, isAuthenticated: true, role: user.role, loading: false });

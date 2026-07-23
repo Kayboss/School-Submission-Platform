@@ -32,39 +32,38 @@ export async function logActivity(action, entityType = null, entityId = null, me
 
 // Track login session
 export async function startSession() {
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!session?.user) return null;
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.user) return null;
 
-  const ua = navigator.userAgent;
-  const device = parseUserAgent(ua);
-  const location = await getLocationCached();
+    const ua = navigator.userAgent;
+    const device = parseUserAgent(ua);
+    const location = await getLocationCached();
 
-  const { data, error } = await supabase.from('user_sessions').insert({
-    user_id: session.user.id,
-    user_agent: ua,
-    metadata: { ...device, ...location }
-  }).select('id').single();
+    const { data, error } = await supabase.from('user_sessions').insert({
+      user_id: session.user.id,
+      user_agent: ua,
+      metadata: { ...device, ...location }
+    }).select('id').single();
 
-  if (error) console.error('Session start error:', error);
-  return data?.id || null;
+    if (error) return null;
+    return data?.id || null;
+  } catch (e) {
+    return null;
+  }
 }
 
 // Track logout session
 export async function endSession(sessionId) {
   if (!sessionId) return;
-
-  const { data: session } = await supabase
-    .from('user_sessions')
-    .select('login_at')
-    .eq('id', sessionId)
-    .single();
-
-  if (session?.login_at) {
-    const duration = Math.floor((Date.now() - new Date(session.login_at).getTime()) / 1000);
+  try {
+    const duration = 0;
     await supabase
       .from('user_sessions')
       .update({ logout_at: new Date().toISOString(), duration_seconds: duration })
       .eq('id', sessionId);
+  } catch (e) {
+    // silently fail
   }
 }
 
