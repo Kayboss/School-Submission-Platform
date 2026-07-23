@@ -541,7 +541,7 @@ const CourseList = () => {
   const isAdmin = user?.role === 'admin';
   const canManageCourses = isLecturer || isAdmin;
 
-  const { courses, addCourse, updateCourse, deleteCourse, updateCourseImage } = useCourseStore();
+  const { courses, addCourse, updateCourse, deleteCourse, uploadCourseImage, deleteCourseImage } = useCourseStore();
   const assignments = useAssignmentStore(state => state.assignments);
 
   const [modalOpen, setModalOpen] = useState(false);
@@ -558,17 +558,18 @@ const CourseList = () => {
   const [schedule, setSchedule] = useState('');
   const [accent, setAccent] = useState(PRESET_COLORS[0]);
   const [imagePreview, setImagePreview] = useState(null);
+  const [imageFile, setImageFile] = useState(null);
 
   const handleOpenAddModal = () => {
     setEditingCourse(null);
     setCode('');
     setName('');
-    // Prefill instructor name if the lecturer is adding the course
     setInstructor(canManageCourses ? user.name : '');
     setCredits('3.0');
     setSchedule('');
     setAccent(PRESET_COLORS[0]);
     setImagePreview(null);
+    setImageFile(null);
     setModalOpen(true);
   };
 
@@ -581,10 +582,11 @@ const CourseList = () => {
     setSchedule(course.schedule);
     setAccent(course.accent);
     setImagePreview(course.image || null);
+    setImageFile(null);
     setModalOpen(true);
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!code || !name || !instructor || !schedule) return;
 
@@ -595,17 +597,19 @@ const CourseList = () => {
       credits,
       schedule,
       accent,
-      image: imagePreview || undefined,
       user_id: user?.id || null,
     };
 
     if (editingCourse) {
-      updateCourse(editingCourse.id, courseData);
+      await updateCourse(editingCourse.id, courseData);
+      if (imageFile) await uploadCourseImage(editingCourse.id, imageFile);
     } else {
-      addCourse(courseData);
+      const newCourse = await addCourse(courseData);
+      if (newCourse && imageFile) await uploadCourseImage(newCourse.id, imageFile);
     }
 
     setModalOpen(false);
+    setImageFile(null);
   };
 
   return (
@@ -643,12 +647,9 @@ const CourseList = () => {
                 onChange={(e) => {
                   const file = e.target.files[0];
                   if (file) {
-                    const reader = new FileReader();
-                    reader.onload = (ev) => {
-                      updateCourseImage(course.id, ev.target.result);
+                    uploadCourseImage(course.id, file).then(() => {
                       useToastStore.getState().addToast('Course image updated', 'success');
-                    };
-                    reader.readAsDataURL(file);
+                    });
                   }
                   e.target.value = '';
                 }}
@@ -790,14 +791,13 @@ const CourseList = () => {
                     onChange={(e) => {
                       const file = e.target.files[0];
                       if (file) {
-                        const reader = new FileReader();
-                        reader.onload = (ev) => setImagePreview(ev.target.result);
-                        reader.readAsDataURL(file);
+                        setImageFile(file);
+                        setImagePreview(URL.createObjectURL(file));
                       }
                     }}
                   />
                   {imagePreview && (
-                    <RemoveImageBtn type="button" onClick={() => setImagePreview(null)}>
+                    <RemoveImageBtn type="button" onClick={() => { setImagePreview(null); setImageFile(null); }}>
                       <X size={16} /> Remove
                     </RemoveImageBtn>
                   )}
