@@ -2,8 +2,12 @@ import { supabase } from './supabase';
 import { mapCourses, mapAssignments, mapSubmissions, mapRubrics, mapRubric, mapStudents } from '../utils/dataMapper';
 
 // ── Courses ──
-export async function fetchCourses() {
-  const { data } = await supabase.from('courses').select('*').order('id');
+export async function fetchCourses(user) {
+  let query = supabase.from('courses').select('*').order('id');
+  if (user?.role === 'lecturer') {
+    query = query.eq('user_id', user.id);
+  }
+  const { data } = await query;
   return mapCourses(data);
 }
 
@@ -22,8 +26,12 @@ export async function deleteCourse(id) {
 }
 
 // ── Assignments ──
-export async function fetchAssignments() {
-  const { data } = await supabase.from('assignments').select('*').order('created_at');
+export async function fetchAssignments(user) {
+  let query = supabase.from('assignments').select('*').order('created_at');
+  if (user?.role === 'lecturer') {
+    query = query.eq('user_id', user.id);
+  }
+  const { data } = await query;
   return mapAssignments(data);
 }
 
@@ -53,8 +61,17 @@ export async function deleteRubric(id) {
 }
 
 // ── Submissions ──
-export async function fetchSubmissions() {
-  const { data } = await supabase.from('submissions').select('*').order('created_at', { ascending: false });
+export async function fetchSubmissions(user) {
+  let query = supabase.from('submissions').select('*').order('created_at', { ascending: false });
+  if (user?.role === 'student') {
+    query = query.eq('user_id', user.id);
+  } else if (user?.role === 'lecturer') {
+    const { data: myCourses } = await supabase.from('courses').select('code').eq('user_id', user.id);
+    const codes = (myCourses || []).map(c => c.code);
+    if (codes.length === 0) return [];
+    query = query.in('course_code', codes);
+  }
+  const { data } = await query;
   return mapSubmissions(data);
 }
 

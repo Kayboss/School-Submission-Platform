@@ -70,6 +70,7 @@ const LecturerAssignments = () => {
       maxSize: Number(aMaxSize),
       allowedExtensions: aExt.split(',').map(e => e.trim()),
       lecturerName: user?.name || 'Lecturer',
+      user_id: user?.id || null,
     });
     setIsCreating(false);
     addToast('Assignment created', 'success');

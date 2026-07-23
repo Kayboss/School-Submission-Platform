@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import styled from 'styled-components';
 import { useAuthStore } from '../../store/authStore';
-import { GraduationCap, ShieldCheck, User, Lock, Mail, ArrowRight, Building, Eye, EyeOff, Loader } from 'lucide-react';
+import { GraduationCap, ShieldCheck, User, Lock, Mail, ArrowRight, Building, Eye, EyeOff, Loader, Hash } from 'lucide-react';
 
 const Container = styled.div`
   height: 100vh;
@@ -239,6 +239,7 @@ const InstitutionalSignup = () => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [role, setRole] = useState('student');
   const [institution, setInstitution] = useState('Tamale Technical University');
+  const [studentId, setStudentId] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
 
@@ -267,7 +268,7 @@ const InstitutionalSignup = () => {
       return;
     }
 
-    const result = await signUp({ email, password, name, role, institution });
+    const result = await signUp({ email, password, name, role, institution, studentId });
     if (result?.error) {
       setError(result.error);
     } else if (result?.needsEmailConfirmation) {
@@ -362,6 +363,19 @@ const InstitutionalSignup = () => {
               required
             />
           </InputGroup>
+
+          {role === 'student' && (
+            <InputGroup>
+              <InputIcon><Hash size={18} /></InputIcon>
+              <Input
+                type="text"
+                placeholder="Student ID (e.g. TATU/24/0001)"
+                value={studentId}
+                onChange={(e) => setStudentId(e.target.value)}
+                required
+              />
+            </InputGroup>
+          )}
 
           {error && <ErrorMsg>{error}</ErrorMsg>}
 

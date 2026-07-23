@@ -7,9 +7,9 @@ export const useSubmissionStore = create((set) => ({
   submissions: [],
   loading: false,
 
-  loadSubmissions: async () => {
+  loadSubmissions: async (user) => {
     set({ loading: true });
-    const submissions = await fetchSubmissions();
+    const submissions = await fetchSubmissions(user);
     set({ submissions, loading: false });
   },
 

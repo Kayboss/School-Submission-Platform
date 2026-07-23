@@ -4,6 +4,7 @@ import {
   LayoutDashboard, 
   BookOpen, 
   ClipboardCheck, 
+  ListChecks,
   History, 
   GraduationCap,
   Archive,
@@ -13,6 +14,7 @@ import {
   Settings,
   LogOut,
   Shield,
+  Loader,
   Menu,
   X
 } from 'lucide-react';
@@ -180,6 +182,12 @@ const LogoutBtn = styled.button`
     transform: translateX(5px);
   }
 
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+  }
+
   svg {
     opacity: 0.9;
   }
@@ -190,14 +198,21 @@ const Layout = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
 
   useEffect(() => {
     logActivity(ACTIONS.PAGE_VIEW, 'page', location.pathname, { path: location.pathname });
   }, [location.pathname]);
 
-  const handleLogout = () => {
-    logout();
-    navigate('/');
+  const handleLogout = async () => {
+    setLoggingOut(true);
+    try {
+      await logout();
+      navigate('/');
+    } catch (err) {
+      console.error('Logout error:', err);
+      setLoggingOut(false);
+    }
   };
 
   return (
@@ -221,6 +236,9 @@ const Layout = () => {
           </NavLink>
           {user?.role !== 'lecturer' && (
             <>
+              <NavLink to="/assignments" $active={location.pathname === '/assignments'} onClick={() => setSidebarOpen(false)}>
+                <ListChecks size={18} /> Assignments
+              </NavLink>
               <NavLink to="/submissions" $active={location.pathname === '/submissions'} onClick={() => setSidebarOpen(false)}>
                 <ClipboardCheck size={18} /> Submissions
               </NavLink>
@@ -246,8 +264,8 @@ const Layout = () => {
             </>
           )}
           {user?.role === 'admin' && (
-            <NavLink to="/admin" $active={location.pathname === '/admin'} onClick={() => setSidebarOpen(false)}>
-              <Shield size={18} /> Research Dashboard
+            <NavLink to="/analytics" $active={location.pathname === '/analytics'} onClick={() => setSidebarOpen(false)}>
+              <Shield size={18} /> Analytics
             </NavLink>
           )}
           <NavLink to="/settings" $active={location.pathname === '/settings'} onClick={() => setSidebarOpen(false)}>
@@ -255,8 +273,8 @@ const Layout = () => {
           </NavLink>
         </NavList>
 
-        <LogoutBtn onClick={() => { handleLogout(); setSidebarOpen(false); }}>
-          <LogOut size={18} /> Sign Out
+        <LogoutBtn onClick={() => { handleLogout(); setSidebarOpen(false); }} disabled={loggingOut}>
+          {loggingOut ? <Loader className="spin" size={18} /> : <LogOut size={18} />} {loggingOut ? 'Signing out...' : 'Sign Out'}
         </LogoutBtn>
       </Sidebar>
 

@@ -6,9 +6,9 @@ export const useAssignmentStore = create((set) => ({
   assignments: [],
   loading: false,
 
-  loadAssignments: async () => {
+  loadAssignments: async (user) => {
     set({ loading: true });
-    const assignments = await fetchAssignments();
+    const assignments = await fetchAssignments(user);
     set({ assignments, loading: false });
   },
 

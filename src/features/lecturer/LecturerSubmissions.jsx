@@ -5,6 +5,7 @@ import { useAssignmentStore } from '../../store/assignmentStore';
 import { useToastStore } from '../../store/toastStore';
 import { useRubricStore } from '../../store/rubricStore';
 import { exportGradesCsv } from '../../utils/exportCsv';
+import { supabase } from '../../lib/supabase';
 import {
   FileText, CheckCircle, Clock, AlertCircle, Download, Eye,
   Search, BarChart2, Package, Video, DownloadCloud, RotateCcw, ClipboardList, Award, Loader
@@ -96,6 +97,35 @@ const LecturerSubmissions = () => {
   const [bulkLoading, setBulkLoading] = useState(false);
   const [isGrading, setIsGrading] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  const [downloadingFile, setDownloadingFile] = useState(null);
+
+  const handleDownloadFile = async (storagePath, fileName) => {
+    setDownloadingFile(storagePath);
+    const { data, error } = await supabase.storage
+      .from('submission-files')
+      .createSignedUrl(storagePath, 3600);
+    if (error || !data?.signedUrl) {
+      addToast('Failed to generate download link', 'error');
+      setDownloadingFile(null);
+      return;
+    }
+    const a = document.createElement('a');
+    a.href = data.signedUrl;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setDownloadingFile(null);
+  };
+
+  const handleDownloadAll = async (sub) => {
+    const files = sub.files || [];
+    for (const f of files) {
+      if (f.storagePath) {
+        await handleDownloadFile(f.storagePath, f.name);
+      }
+    }
+  };
 
   const assignment = gradingTarget ? assignments.find(a => a.id === gradingTarget.assignmentId) : null;
   const rubric = assignment ? rubrics.find(r => r.assignmentId === assignment.id) : null;
@@ -285,7 +315,9 @@ const LecturerSubmissions = () => {
                     <ActionBtn title="View file" onClick={() => { setViewerTarget(sub); setViewVersion(0); }}>
                       <Eye size={16} />
                     </ActionBtn>
-                    <ActionBtn title="Download"><Download size={16} /></ActionBtn>
+                    <ActionBtn title="Download" onClick={() => handleDownloadAll(sub)} disabled={downloadingFile !== null}>
+                      {downloadingFile ? <Loader className="spin" size={16} /> : <Download size={16} />}
+                    </ActionBtn>
                     <ActionBtn $variant="primary" title="Grade" onClick={() => openGrading(sub)}>
                       <BarChart2 size={16} />
                     </ActionBtn>
@@ -397,12 +429,28 @@ const LecturerSubmissions = () => {
                   <p style={{ fontSize: '0.85rem', color: '#55433c' }}>
                     {currentViewVersion
                       ? `Uploaded ${new Date(currentViewVersion.timestamp).toLocaleString('en-GB')} — ${(currentViewVersion.files?.[0]?.size || 0).toFixed(1)} MB`
-                      : `Inline preview simulated — ${(viewerTarget.files?.[0]?.size || 0).toFixed(1)} MB`}
+                      : `Submitted — ${(viewerTarget.files?.[0]?.size || 0).toFixed(1)} MB`}
                   </p>
                   <div style={{ background: 'white', width: '100%', padding: '1.5rem', borderRadius: '8px', border: '1px solid #ddd', fontSize: '0.85rem', color: '#55433c', textAlign: 'left' }}>
-                    <strong style={{ color: '#1c1c19' }}>Mock Document Viewer</strong>
-                    <p style={{ marginTop: '0.5rem' }}>Simulated document preview for version {currentViewVersion?.version || 1}.</p>
-                    <p style={{ marginTop: '0.25rem', fontFamily: 'monospace', fontSize: '0.75rem', color: '#b35a38' }}>
+                    <strong style={{ color: '#1c1c19' }}>Submitted Files</strong>
+                    {(currentViewVersion?.files || viewerTarget.files || []).map((f, i) => (
+                      <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.5rem 0', borderBottom: '1px solid #eee' }}>
+                        <div>
+                          <span style={{ fontWeight: 700 }}>{f.name}</span>
+                          <span style={{ marginLeft: '0.5rem', fontSize: '0.75rem', color: '#55433c' }}>{f.size} MB &middot; {f.type}</span>
+                        </div>
+                        {f.storagePath && (
+                          <ActionBtn
+                            onClick={() => handleDownloadFile(f.storagePath, f.name)}
+                            disabled={downloadingFile === f.storagePath}
+                            title="Download file"
+                          >
+                            {downloadingFile === f.storagePath ? <Loader className="spin" size={14} /> : <Download size={14} />}
+                          </ActionBtn>
+                        )}
+                      </div>
+                    ))}
+                    <p style={{ marginTop: '0.75rem', fontFamily: 'monospace', fontSize: '0.75rem', color: '#b35a38' }}>
                       SHA-256: {(viewerTarget.files?.[0]?.hash || '').substring(0, 20)}...
                     </p>
                   </div>

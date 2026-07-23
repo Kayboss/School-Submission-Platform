@@ -5,9 +5,9 @@ export const useCourseStore = create((set) => ({
   courses: [],
   loading: false,
 
-  loadCourses: async () => {
+  loadCourses: async (user) => {
     set({ loading: true });
-    const courses = await fetchCourses();
+    const courses = await fetchCourses(user);
     set({ courses, loading: false });
   },
 

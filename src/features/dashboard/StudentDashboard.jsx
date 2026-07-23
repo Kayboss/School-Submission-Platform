@@ -2,7 +2,7 @@ import React, { useState, useMemo, useRef, useEffect } from 'react';
 import styled from 'styled-components';
 import {
   Clock, ChevronRight, Bell, X,
-  ListChecks, CheckCircle, AlertCircle, Send
+  ListChecks, CheckCircle, AlertCircle, Send, Star
 } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
 import { useCourseStore } from '../../store/courseStore';
@@ -27,6 +27,17 @@ const NotifButton = styled.button`
   color: ${({ theme }) => theme.colors.text.main}; box-shadow: ${({ theme }) => theme.shadows.small};
   position: relative;
   &:hover { border-color: ${({ theme }) => theme.colors.primary}; color: ${({ theme }) => theme.colors.primary}; transform: translateY(-2px); }
+`;
+
+const RateUsButton = styled.button`
+  display: flex; align-items: center; gap: 0.5rem;
+  padding: 0.55rem 1rem; border-radius: 14px;
+  background: ${({ theme }) => theme.colors.secondary};
+  color: white; font-weight: 800; font-size: 0.8rem;
+  box-shadow: 0 4px 12px rgba(218, 165, 32, 0.3);
+  border: none; margin-right: 0.75rem;
+  &:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(218, 165, 32, 0.4); }
+  @media (max-width: 600px) { padding: 0.5rem 0.75rem; font-size: 0.75rem; span { display: none; } }
 `;
 
 const NotifBadge = styled.span`
@@ -210,6 +221,7 @@ const getCountdown = (dueDate) => {
 
 const StudentDashboard = () => {
   const user = useAuthStore(state => state.user);
+  const acceptedCourses = useAuthStore(state => state.acceptedCourses);
   const assignments = useAssignmentStore(state => state.assignments);
   const submissions = useSubmissionStore(state => state.submissions);
   const navigate = useNavigate();
@@ -374,6 +386,11 @@ const StudentDashboard = () => {
   return (
     <>
       <TopBar>
+        {acceptedCourses.length > 0 && studentSubmissions.length > 0 && !user?.post_interview_completed && (
+          <RateUsButton onClick={() => navigate('/post-interview')}>
+            <Star size={16} strokeWidth={2.5} /> <span>Rate Us</span>
+          </RateUsButton>
+        )}
         <NotifWrapper ref={notifRef}>
           <NotifButton onClick={() => setNotifOpen(v => !v)}>
             <Bell size={20} strokeWidth={2.5} />

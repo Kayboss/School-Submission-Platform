@@ -3,7 +3,7 @@ import styled from 'styled-components';
 import { supabase } from '../../lib/supabase';
 import { useAuthStore } from '../../store/authStore';
 import { useToastStore } from '../../store/toastStore';
-import { User, Bell, Shield, Save, Moon, Sun, Loader } from 'lucide-react';
+import { User, Bell, Shield, Save, Moon, Sun, Loader, Hash } from 'lucide-react';
 
 const Container = styled.div` padding: 1rem; `;
 
@@ -105,6 +105,7 @@ const Settings = () => {
   const defaultNotifs = { email: true, sms: false, gradeAlerts: true };
   const [name, setName] = useState(user?.name || '');
   const [email, setEmail] = useState(user?.email || '');
+  const [studentId, setStudentId] = useState(user?.student_id || '');
   const [notifications, setNotifications] = useState(user?.notification_preferences || defaultNotifs);
   const [theme, setTheme] = useState(user?.theme || 'light');
   const [isSaving, setIsSaving] = useState(false);
@@ -115,9 +116,22 @@ const Settings = () => {
   const handleSave = async () => {
     setIsSaving(true);
     await updateProfile({ name, email });
-    // Save preferences separately so missing columns don't break name/email update
-    await supabase.from('profiles').update({ notification_preferences: notifications, theme }).eq('id', user?.id);
-    addToast('Settings saved successfully', 'success');
+    // Save preferences and student_id separately so missing columns don't break name/email update
+    const { error } = await supabase.from('profiles').update({
+      notification_preferences: notifications,
+      theme,
+      student_id: studentId || null
+    }).eq('id', user?.id);
+    if (error) {
+      console.error('Settings save error:', error);
+      addToast('Failed to save settings', 'error');
+    } else {
+      // Update local user state so the UI reflects saved values
+      useAuthStore.setState(state => ({
+        user: { ...state.user, name, email, student_id: studentId || null, notification_preferences: notifications, theme }
+      }));
+      addToast('Settings saved successfully', 'success');
+    }
     setTimeout(() => setIsSaving(false), 600);
   };
 
@@ -169,6 +183,17 @@ const Settings = () => {
               <Label>Institution</Label>
               <Input value={user?.institution || 'Tamale Technical University'} disabled style={{ opacity: 0.6 }} />
             </FormGroup>
+            {user?.role === 'student' && (
+              <FormGroup>
+                <Label>Student ID</Label>
+                <Input
+                  type="text"
+                  placeholder="e.g. TATU/24/0001"
+                  value={studentId}
+                  onChange={e => setStudentId(e.target.value)}
+                />
+              </FormGroup>
+            )}
             <SaveBtn onClick={handleSave} disabled={isSaving}>{isSaving ? <Loader className="spin" size={18} /> : <Save size={18} />} Save Changes</SaveBtn>
           </Card>
 

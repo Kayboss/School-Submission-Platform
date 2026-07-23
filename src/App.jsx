@@ -27,17 +27,22 @@ import CourseList from './features/courses/CourseList';
 import Layout from './components/common/Layout';
 import LecturerDashboard from './features/lecturer/LecturerDashboard';
 import Settings from './features/settings/Settings';
+import StudentAssignments from './features/assignments/StudentAssignments';
 import LecturerLayout from './features/lecturer/LecturerLayout';
 import LecturerSubmissions from './features/lecturer/LecturerSubmissions';
 import LecturerAssignments from './features/lecturer/LecturerAssignments';
 import LecturerStudents from './features/lecturer/LecturerStudents';
+import QuestionnaireDashboard from './features/admin/QuestionnaireDashboard';
 import AdminDashboard from './features/admin/AdminDashboard';
+import OnboardingWizard from './features/onboarding/OnboardingWizard';
+import PostInterviewWizard from './features/post-interview/PostInterviewWizard';
 import { ToastContainer } from './components/ui/ToastContainer';
 
 
 // Loads data from Supabase when authenticated
 const DataLoader = ({ children }) => {
   const isAuthenticated = useAuthStore(s => s.isAuthenticated);
+  const user = useAuthStore(s => s.user);
   const loadCourses = useCourseStore(s => s.loadCourses);
   const loadAssignments = useAssignmentStore(s => s.loadAssignments);
   const loadSubmissions = useSubmissionStore(s => s.loadSubmissions);
@@ -45,15 +50,15 @@ const DataLoader = ({ children }) => {
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
-    if (isAuthenticated) {
+    if (isAuthenticated && user) {
       Promise.all([
-        loadCourses(),
-        loadAssignments(),
-        loadSubmissions(),
+        loadCourses(user),
+        loadAssignments(user),
+        loadSubmissions(user),
         loadRubrics()
       ]).finally(() => setLoaded(true));
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, user]);
 
   if (isAuthenticated && !loaded) {
     return <Splash>Loading data...</Splash>;
@@ -74,12 +79,64 @@ const CheckAuth = ({ children }) => {
   return children;
 };
 
+// Onboarding Guard — redirects students to /onboarding if not completed
+const OnboardingGuard = ({ children }) => {
+  const user = useAuthStore(state => state.user);
+  const role = useAuthStore(state => state.role);
+  const location = useLocation();
+
+  if (!user) return children;
+
+  const effectiveRole = role || user?.role;
+  if (effectiveRole && effectiveRole !== 'student') return children;
+
+  if (effectiveRole === 'student' && !user.onboarding_completed && location.pathname !== '/onboarding') {
+    return <Navigate to="/onboarding" replace />;
+  }
+
+  if (effectiveRole === 'student' && user.onboarding_completed && location.pathname === '/onboarding') {
+    return <Navigate to="/" replace />;
+  }
+
+  return children;
+};
+
 // Dashboard Switcher based on User Role
 const Dashboard = () => {
   const role = useAuthStore(state => state.role);
-  if (role === 'admin') return <AdminDashboard />;
+  if (role === 'admin') return <QuestionnaireDashboard />;
   if (role === 'lecturer') return <LecturerDashboard />;
   return <StudentDashboard />;
+};
+
+// Auto-logout after 10 minutes of inactivity
+const IDLE_TIMEOUT = 10 * 60 * 1000;
+const IdleLogout = () => {
+  const isAuthenticated = useAuthStore(s => s.isAuthenticated);
+  const logout = useAuthStore(s => s.logout);
+  const timerRef = React.useRef(null);
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    const resetTimer = () => {
+      clearTimeout(timerRef.current);
+      timerRef.current = setTimeout(() => {
+        logout();
+      }, IDLE_TIMEOUT);
+    };
+
+    const events = ['mousedown', 'mousemove', 'keydown', 'scroll', 'touchstart', 'click'];
+    events.forEach(e => document.addEventListener(e, resetTimer, { passive: true }));
+    resetTimer();
+
+    return () => {
+      clearTimeout(timerRef.current);
+      events.forEach(e => document.removeEventListener(e, resetTimer));
+    };
+  }, [isAuthenticated, logout]);
+
+  return null;
 };
 
 const App = () => {
@@ -106,6 +163,7 @@ const App = () => {
       <ThemeContextProvider>
         <GlobalStyles />
         <BrowserRouter>
+          <IdleLogout />
           <ToastContainer />
           <Routes>
             {/* Public Routes */}
@@ -117,9 +175,11 @@ const App = () => {
               path="/" 
               element={
                 <CheckAuth>
-                  <DataLoader>
-                    <Layout />
-                  </DataLoader>
+                  <OnboardingGuard>
+                    <DataLoader>
+                      <Layout />
+                    </DataLoader>
+                  </OnboardingGuard>
                 </CheckAuth>
               }
             >
@@ -127,6 +187,7 @@ const App = () => {
               <Route path="submissions" element={<UploadPortal />} />
 
               <Route path="courses" element={<CourseList />} />
+              <Route path="assignments" element={<StudentAssignments />} />
               <Route path="settings" element={<Settings />} />
               <Route path="history" element={<SubmissionHistory />} />
               <Route path="lecturer" element={<LecturerLayout />}>
@@ -135,8 +196,29 @@ const App = () => {
                 <Route path="assignments" element={<LecturerAssignments />} />
                 <Route path="students" element={<LecturerStudents />} />
               </Route>
-              <Route path="admin" element={<AdminDashboard />} />
+              <Route path="admin" element={<QuestionnaireDashboard />} />
+              <Route path="analytics" element={<AdminDashboard />} />
             </Route>
+
+            {/* Onboarding Route */}
+            <Route 
+              path="/onboarding" 
+              element={
+                <CheckAuth>
+                  <OnboardingWizard />
+                </CheckAuth>
+              }
+            />
+
+            {/* Post-Interview Route */}
+            <Route 
+              path="/post-interview" 
+              element={
+                <CheckAuth>
+                  <PostInterviewWizard />
+                </CheckAuth>
+              }
+            />
 
             {/* Fallback */}
             <Route path="*" element={<Navigate to="/" replace />} />

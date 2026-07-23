@@ -593,7 +593,8 @@ const CourseList = () => {
       credits,
       schedule,
       accent,
-      image: imagePreview || undefined
+      image: imagePreview || undefined,
+      user_id: user?.id || null,
     };
 
     if (editingCourse) {

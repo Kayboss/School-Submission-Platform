@@ -25,11 +25,46 @@ export const useAuthStore = create(
 
           if (error) console.error('initialize profile fetch error:', error);
 
-          set({
-            user: profile || { id: session.user.id, email: session.user.email },
-            isAuthenticated: true,
-            role: profile?.role || 'student'
-          });
+          const role = profile?.role || (session.user.user_metadata?.role) || 'student';
+
+          if (!profile) {
+            console.error('No profile found for user', session.user.id, '- creating one');
+            await supabase.from('profiles').insert({
+              id: session.user.id,
+              name: session.user.user_metadata?.name || session.user.email,
+              email: session.user.email,
+              role: session.user.user_metadata?.role || 'student',
+              institution: session.user.user_metadata?.institution || 'Tamale Technical University',
+              onboarding_completed: role !== 'student'
+            });
+            const { data: newProfile } = await supabase.from('profiles').select('*').eq('id', session.user.id).maybeSingle();
+            if (newProfile) {
+              set({ user: newProfile, isAuthenticated: true, role: newProfile.role });
+            } else {
+              set({
+                user: { id: session.user.id, email: session.user.email },
+                isAuthenticated: true,
+                role
+              });
+            }
+          } else {
+            // Auto-complete onboarding for existing users who already have data
+            if (!profile.onboarding_completed && role === 'student') {
+              const { count } = await supabase.from('submissions').select('id', { count: 'exact', head: true }).eq('user_id', session.user.id);
+              const { count: courseCount } = await supabase.from('accepted_courses').select('id', { count: 'exact', head: true }).eq('user_id', session.user.id);
+              const accountAge = Date.now() - new Date(profile.created_at).getTime();
+              const oneDay = 24 * 60 * 60 * 1000;
+              if ((count > 0) || (courseCount > 0) || (accountAge > oneDay)) {
+                profile.onboarding_completed = true;
+                await supabase.from('profiles').update({ onboarding_completed: true }).eq('id', session.user.id);
+              }
+            }
+            set({
+              user: profile,
+              isAuthenticated: true,
+              role
+            });
+          }
 
           const courses = await fetchAcceptedCourses(session.user.id);
           set({ acceptedCourses: courses });
@@ -48,21 +83,22 @@ export const useAuthStore = create(
 
             if (error) console.error('onAuthStateChange profile fetch error:', error);
 
-            set({
-              user: profile || { id: session.user.id, email: session.user.email },
-              isAuthenticated: true,
-              role: profile?.role || 'student'
-            });
-
-            const courses = await fetchAcceptedCourses(session.user.id);
-            set({ acceptedCourses: courses });
+            if (profile) {
+              set({
+                user: profile,
+                isAuthenticated: true,
+                role: profile.role || 'student'
+              });
+              const courses = await fetchAcceptedCourses(session.user.id);
+              set({ acceptedCourses: courses });
+            }
           } else if (event === 'SIGNED_OUT') {
             set({ user: null, isAuthenticated: false, role: null, acceptedCourses: [] });
           }
         });
       },
 
-      signUp: async ({ email, password, name, role, institution }) => {
+      signUp: async ({ email, password, name, role, institution, studentId }) => {
         set({ loading: true });
 
         // First check if user already exists
@@ -94,7 +130,9 @@ export const useAuthStore = create(
             name,
             email,
             role,
-            institution: institution || 'Tamale Technical University'
+            institution: institution || 'Tamale Technical University',
+            student_id: studentId || null,
+            onboarding_completed: role === 'student' ? false : true
           });
 
           if (profileError) {
@@ -105,7 +143,7 @@ export const useAuthStore = create(
           // If session exists, user is auto-confirmed; otherwise email confirmation required
           if (data.session) {
             set({
-              user: { id: data.user.id, name, email, role, institution },
+              user: { id: data.user.id, name, email, role, institution, student_id: studentId || null, onboarding_completed: role === 'student' ? false : true },
               isAuthenticated: true,
               role,
               loading: false
@@ -206,6 +244,12 @@ export const useAuthStore = create(
     }),
     {
       name: 'tatu-auth-storage',
+      partialize: (state) => ({
+        user: state.user,
+        isAuthenticated: state.isAuthenticated,
+        acceptedCourses: state.acceptedCourses,
+        sessionId: state.sessionId
+      }),
     }
   )
 );

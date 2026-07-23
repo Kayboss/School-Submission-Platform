@@ -123,7 +123,7 @@ const AdminDashboard = () => {
         supabase.from('user_sessions').select('*').order('login_at', { ascending: false }).limit(500),
         supabase.from('submissions').select('*'),
         supabase.from('assignments').select('*'),
-        supabase.from('courses').select('*')
+        supabase.from('courses').select('*'),
       ]);
       setProfiles(p.data || []);
       setActivityLogs(a.data || []);
@@ -202,6 +202,30 @@ const AdminDashboard = () => {
 
   const maxDailyActivity = Math.max(...dailyActivity.map(([, c]) => c), 1);
 
+  const userMap = useMemo(() => {
+    const map = {};
+    profiles.forEach(p => { map[p.id] = p.name || p.email || p.id?.slice(0, 8) + '...'; });
+    return map;
+  }, [profiles]);
+
+  const getUserName = (userId) => userMap[userId] || userId?.slice(0, 8) + '...';
+
+  const deviceBreakdown = useMemo(() => {
+    const devices = {};
+    const browsers = {};
+    const locations = {};
+    sessions.forEach(s => {
+      const m = s.metadata || {};
+      if (m.device) devices[m.device] = (devices[m.device] || 0) + 1;
+      if (m.browser) browsers[m.browser] = (browsers[m.browser] || 0) + 1;
+      if (m.city) locations[m.city] = (locations[m.city] || 0) + 1;
+    });
+    return { devices, browsers, locations };
+  }, [sessions]);
+
+  const maxDeviceCount = Math.max(...Object.values(deviceBreakdown.devices), 1);
+  const maxBrowserCount = Math.max(...Object.values(deviceBreakdown.browsers), 1);
+
   const exportCsv = (data, filename) => {
     if (!data.length) { addToast('No data to export', 'error'); return; }
     const headers = Object.keys(data[0]);
@@ -228,7 +252,7 @@ const AdminDashboard = () => {
   return (
     <Container>
       <Header>
-        <Title>Research Dashboard</Title>
+        <Title>Analytics</Title>
         <Subtitle>Platform usage analytics and data export for research analysis.</Subtitle>
       </Header>
 
@@ -247,6 +271,9 @@ const AdminDashboard = () => {
         </Tab>
         <Tab $active={activeTab === 'activity'} onClick={() => setActiveTab('activity')}>
           <Activity size={14} /> Activity Log
+        </Tab>
+        <Tab $active={activeTab === 'devices'} onClick={() => setActiveTab('devices')}>
+          <Shield size={14} /> Devices
         </Tab>
         <Tab $active={activeTab === 'export'} onClick={() => setActiveTab('export')}>
           <Download size={14} /> Export
@@ -326,19 +353,25 @@ const AdminDashboard = () => {
           </TableContainer>
 
           <ChartCard style={{ marginTop: '1.5rem' }}>
-            <ChartTitle>Session Durations</ChartTitle>
+            <ChartTitle>Recent Sessions</ChartTitle>
             <TableContainer style={{ boxShadow: 'none', border: 'none' }}>
-              <Table>
-                <thead><tr><Th>User</Th><Th>Login</Th><Th>Logout</Th><Th>Duration</Th></tr></thead>
+              <Table $minWidth="800px">
+                <thead><tr><Th>User</Th><Th>Login</Th><Th>Logout</Th><Th>Duration</Th><Th>Device</Th><Th>Browser</Th><Th>Location</Th></tr></thead>
                 <tbody>
-                  {sessions.slice(0, 20).map(s => (
-                    <Tr key={s.id}>
-                      <Td style={{ fontFamily: 'monospace', fontSize: '0.8rem' }}>{s.user_id?.slice(0, 8)}...</Td>
-                      <Td>{new Date(s.login_at).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })}</Td>
-                      <Td>{s.logout_at ? new Date(s.logout_at).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' }) : '—'}</Td>
-                      <Td>{s.duration_seconds != null ? `${Math.floor(s.duration_seconds / 60)}m ${s.duration_seconds % 60}s` : '—'}</Td>
-                    </Tr>
-                  ))}
+                  {sessions.slice(0, 20).map(s => {
+                    const m = s.metadata || {};
+                    return (
+                      <Tr key={s.id}>
+                        <Td style={{ fontWeight: 800 }}>{getUserName(s.user_id)}</Td>
+                        <Td style={{ fontSize: '0.8rem' }}>{new Date(s.login_at).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })}</Td>
+                        <Td style={{ fontSize: '0.8rem' }}>{s.logout_at ? new Date(s.logout_at).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' }) : '—'}</Td>
+                        <Td>{s.duration_seconds != null ? `${Math.floor(s.duration_seconds / 60)}m ${s.duration_seconds % 60}s` : '—'}</Td>
+                        <Td>{m.device || '—'}</Td>
+                        <Td>{m.browser || '—'}</Td>
+                        <Td style={{ fontSize: '0.8rem' }}>{m.city ? `${m.city}, ${m.country}` : '—'}</Td>
+                      </Tr>
+                    );
+                  })}
                 </tbody>
               </Table>
             </TableContainer>
@@ -412,22 +445,97 @@ const AdminDashboard = () => {
 
       {activeTab === 'activity' && (
         <TableContainer>
-          <Table>
-            <thead><tr><Th>Time</Th><Th>User</Th><Th>Action</Th><Th>Entity</Th><Th>Details</Th></tr></thead>
+          <Table $minWidth="900px">
+            <thead><tr><Th>Time</Th><Th>User</Th><Th>Action</Th><Th>Device</Th><Th>Browser</Th><Th>Location</Th></tr></thead>
             <tbody>
-              {activityLogs.slice(0, 100).map(l => (
-                <Tr key={l.id}>
-                  <Td style={{ fontSize: '0.8rem' }}>{new Date(l.created_at).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })}</Td>
-                  <Td style={{ fontFamily: 'monospace', fontSize: '0.75rem' }}>{l.user_id?.slice(0, 8)}...</Td>
-                  <Td><span style={{ fontWeight: 800, color: '#b35a38' }}>{l.action}</span></Td>
-                  <Td>{l.entity_type} {l.entity_id?.slice(0, 12) || ''}</Td>
-                  <Td style={{ fontSize: '0.8rem', color: '#55433c', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{JSON.stringify(l.metadata)}</Td>
-                </Tr>
-              ))}
-              {activityLogs.length === 0 && <tr><Td colSpan={5} style={{ textAlign: 'center', padding: '3rem', color: '#55433c' }}>No activity recorded yet. Actions will appear as users interact with the platform.</Td></tr>}
+              {activityLogs.slice(0, 100).map(l => {
+                const m = l.metadata || {};
+                return (
+                  <Tr key={l.id}>
+                    <Td style={{ fontSize: '0.8rem' }}>{new Date(l.created_at).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })}</Td>
+                    <Td style={{ fontWeight: 800 }}>{getUserName(l.user_id)}</Td>
+                    <Td><span style={{ fontWeight: 800, color: '#b35a38' }}>{l.action?.replace(/_/g, ' ')}</span></Td>
+                    <Td>{m.device || '—'}</Td>
+                    <Td>{m.browser || '—'}</Td>
+                    <Td style={{ fontSize: '0.8rem' }}>{m.city ? `${m.city}, ${m.country}` : '—'}</Td>
+                  </Tr>
+                );
+              })}
+              {activityLogs.length === 0 && <tr><Td colSpan={6} style={{ textAlign: 'center', padding: '3rem', color: '#55433c' }}>No activity recorded yet.</Td></tr>}
             </tbody>
           </Table>
         </TableContainer>
+      )}
+
+      {activeTab === 'devices' && (
+        <>
+          <StatsGrid>
+            <StatCard $accent="#b35a38"><StatLabel>Desktop</StatLabel><StatValue>{deviceBreakdown.devices.Desktop || 0}</StatValue></StatCard>
+            <StatCard $accent="#daa520"><StatLabel>Mobile</StatLabel><StatValue>{deviceBreakdown.devices.Mobile || 0}</StatValue></StatCard>
+            <StatCard $accent="#4a7c59"><StatLabel>Tablet</StatLabel><StatValue>{deviceBreakdown.devices.Tablet || 0}</StatValue></StatCard>
+            <StatCard $accent="#6F240A"><StatLabel>Total Sessions</StatLabel><StatValue>{sessions.length}</StatValue></StatCard>
+          </StatsGrid>
+
+          <SectionRow>
+            <ChartCard>
+              <ChartTitle>Device Types</ChartTitle>
+              {Object.entries(deviceBreakdown.devices).map(([device, count]) => (
+                <BarRow key={device}>
+                  <BarLabel>{device}</BarLabel>
+                  <BarTrack><BarFill $color="#b35a38" $pct={(count / maxDeviceCount) * 100} /></BarTrack>
+                  <BarCount>{count}</BarCount>
+                </BarRow>
+              ))}
+              {Object.keys(deviceBreakdown.devices).length === 0 && <p style={{ color: '#55433c', fontWeight: 600 }}>No device data yet.</p>}
+            </ChartCard>
+
+            <ChartCard>
+              <ChartTitle>Browsers</ChartTitle>
+              {Object.entries(deviceBreakdown.browsers).map(([browser, count]) => (
+                <BarRow key={browser}>
+                  <BarLabel>{browser}</BarLabel>
+                  <BarTrack><BarFill $color="#4a7c59" $pct={(count / maxBrowserCount) * 100} /></BarTrack>
+                  <BarCount>{count}</BarCount>
+                </BarRow>
+              ))}
+              {Object.keys(deviceBreakdown.browsers).length === 0 && <p style={{ color: '#55433c', fontWeight: 600 }}>No browser data yet.</p>}
+            </ChartCard>
+          </SectionRow>
+
+          <ChartCard>
+            <ChartTitle>Locations</ChartTitle>
+            {Object.entries(deviceBreakdown.locations).map(([loc, count]) => (
+              <BarRow key={loc}>
+                <BarLabel style={{ width: '120px' }}>{loc}</BarLabel>
+                <BarTrack><BarFill $color="#daa520" $pct={(count / sessions.length) * 100} /></BarTrack>
+                <BarCount>{count}</BarCount>
+              </BarRow>
+            ))}
+            {Object.keys(deviceBreakdown.locations).length === 0 && <p style={{ color: '#55433c', fontWeight: 600 }}>No location data yet.</p>}
+          </ChartCard>
+
+          <TableContainer>
+            <Table $minWidth="900px">
+              <thead><tr><Th>User</Th><Th>Login</Th><Th>Duration</Th><Th>Device</Th><Th>Browser</Th><Th>OS</Th><Th>Location</Th></tr></thead>
+              <tbody>
+                {sessions.map(s => {
+                  const m = s.metadata || {};
+                  return (
+                    <Tr key={s.id}>
+                      <Td style={{ fontWeight: 800 }}>{getUserName(s.user_id)}</Td>
+                      <Td style={{ fontSize: '0.8rem' }}>{new Date(s.login_at).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })}</Td>
+                      <Td>{s.duration_seconds != null ? `${Math.floor(s.duration_seconds / 60)}m ${s.duration_seconds % 60}s` : '—'}</Td>
+                      <Td>{m.device || '—'}</Td>
+                      <Td>{m.browser || '—'}</Td>
+                      <Td>{m.os || '—'}</Td>
+                      <Td style={{ fontSize: '0.8rem' }}>{m.city ? `${m.city}, ${m.region}, ${m.country}` : '—'}</Td>
+                    </Tr>
+                  );
+                })}
+              </tbody>
+            </Table>
+          </TableContainer>
+        </>
       )}
 
       {activeTab === 'export' && (
@@ -457,7 +565,7 @@ const AdminDashboard = () => {
             <StatCard $accent="#6F240A">
               <StatLabel>Activity Logs</StatLabel>
               <StatValue>{activityLogs.length}</StatValue>
-              <ActionBtn $color="#6F240A" onClick={() => exportCsv(activityLogs.map(l => ({ id: l.id, user_id: l.user_id, action: l.action, entity_type: l.entity_type, entity_id: l.entity_id, metadata: JSON.stringify(l.metadata), created_at: l.created_at })), 'activity_log.csv')} style={{ marginTop: '0.75rem' }}>
+              <ActionBtn $color="#6F240A" onClick={() => exportCsv(activityLogs.map(l => ({ user: getUserName(l.user_id), action: l.action, entity_type: l.entity_type, entity_id: l.entity_id, device: (l.metadata || {}).device, browser: (l.metadata || {}).browser, location: (l.metadata || {}).city ? `${(l.metadata || {}).city}, ${(l.metadata || {}).country}` : '', created_at: l.created_at })), 'activity_log.csv')} style={{ marginTop: '0.75rem' }}>
                 <Download size={14} /> Export Activity
               </ActionBtn>
             </StatCard>
@@ -467,7 +575,7 @@ const AdminDashboard = () => {
             <StatCard $accent="#6d28d9">
               <StatLabel>Sessions</StatLabel>
               <StatValue>{sessions.length}</StatValue>
-              <ActionBtn $color="#6d28d9" onClick={() => exportCsv(sessions.map(s => ({ id: s.id, user_id: s.user_id, login_at: s.login_at, logout_at: s.logout_at, duration_seconds: s.duration_seconds })), 'sessions.csv')} style={{ marginTop: '0.75rem' }}>
+              <ActionBtn $color="#6d28d9" onClick={() => exportCsv(sessions.map(s => ({ id: s.id, user: getUserName(s.user_id), device: (s.metadata || {}).device, browser: (s.metadata || {}).browser, os: (s.metadata || {}).os, city: (s.metadata || {}).city, country: (s.metadata || {}).country, login_at: s.login_at, logout_at: s.logout_at, duration_seconds: s.duration_seconds })), 'sessions.csv')} style={{ marginTop: '0.75rem' }}>
                 <Download size={14} /> Export Sessions
               </ActionBtn>
             </StatCard>

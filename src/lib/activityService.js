@@ -1,17 +1,30 @@
 import { supabase } from './supabase';
+import { parseUserAgent, getLocation } from '../utils/deviceInfo';
+
+let cachedLocation = null;
+
+async function getLocationCached() {
+  if (cachedLocation) return cachedLocation;
+  cachedLocation = await getLocation();
+  return cachedLocation;
+}
 
 // Log a user action to the activity_log table
 export async function logActivity(action, entityType = null, entityId = null, metadata = {}) {
   const { data: { session } } = await supabase.auth.getSession();
   if (!session?.user) return;
 
+  const ua = navigator.userAgent;
+  const device = parseUserAgent(ua);
+  const location = await getLocationCached();
+
   supabase.from('activity_log').insert({
     user_id: session.user.id,
     action,
     entity_type: entityType,
     entity_id: entityId,
-    metadata,
-    user_agent: navigator.userAgent
+    metadata: { ...metadata, ...device, ...location },
+    user_agent: ua
   }).then(({ error }) => {
     if (error) console.error('Activity log error:', error);
   });
@@ -22,9 +35,14 @@ export async function startSession() {
   const { data: { session } } = await supabase.auth.getSession();
   if (!session?.user) return null;
 
+  const ua = navigator.userAgent;
+  const device = parseUserAgent(ua);
+  const location = await getLocationCached();
+
   const { data, error } = await supabase.from('user_sessions').insert({
     user_id: session.user.id,
-    user_agent: navigator.userAgent
+    user_agent: ua,
+    metadata: { ...device, ...location }
   }).select('id').single();
 
   if (error) console.error('Session start error:', error);

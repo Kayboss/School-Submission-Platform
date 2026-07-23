@@ -10,6 +10,7 @@ import { useSubmissionStore } from '../../store/submissionStore';
 import { useCourseStore } from '../../store/courseStore';
 import { useAuthStore } from '../../store/authStore';
 import { useToastStore } from '../../store/toastStore';
+import { supabase } from '../../lib/supabase';
 
 const getCurrentSemester = () => {
   const now = new Date();
@@ -322,26 +323,42 @@ const UploadPortal = () => {
     const hashInput = `${user?.name}-${selectedAssignId}-${now.toISOString()}`;
     const fileHash = await generateHash(hashInput);
 
+    const uploadedFiles = [];
+    for (const f of files) {
+      const storagePath = `${selectedAssignId}/${user?.id}/${Date.now()}_${f.sanitizedName}`;
+      const { error: uploadError } = await supabase.storage
+        .from('submission-files')
+        .upload(storagePath, f.file, { upsert: false });
+      if (uploadError) {
+        addToast(`Failed to upload ${f.sanitizedName}: ${uploadError.message}`, 'error');
+        setIsSubmitting(false);
+        return;
+      }
+      uploadedFiles.push({
+        name: f.sanitizedName,
+        size: +(f.file.size / 1024 / 1024).toFixed(2),
+        type: f.file.type,
+        hash: fileHash,
+        storagePath,
+      });
+    }
+
     const submissionData = {
       assignmentId: selectedAssignId,
       courseCode: selectedAssign.courseCode,
       assignmentTitle: selectedAssign.title,
       studentName: user?.name || 'Student',
       studentId: user?.studentId || user?.id,
+      userId: user?.id,
       isLate,
       timeDiscrepancy,
-      files: files.map(f => ({
-        name: f.sanitizedName,
-        size: +(f.file.size / 1024 / 1024).toFixed(2),
-        type: f.file.type,
-        hash: fileHash
-      })),
+      files: uploadedFiles,
       videoLink: videoLink || undefined,
       status: isLate ? 'Late' : 'Pending',
       semester: getCurrentSemester()
     };
 
-    addSubmission(submissionData);
+    await addSubmission(submissionData);
 
     const receiptId = `TaTU-${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
     setReceipt({
@@ -350,7 +367,7 @@ const UploadPortal = () => {
       student: `${user?.name || 'Student'} (${user?.studentId || user?.id})`,
       course: selectedAssign.courseCode,
       assignment: selectedAssign.title,
-      files: files.map(f => f.sanitizedName),
+      files: uploadedFiles.map(f => f.name),
       videoLink,
       hash: fileHash,
       isLate

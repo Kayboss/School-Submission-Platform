@@ -7,7 +7,7 @@ import { useCourseStore } from '../../store/courseStore';
 import { fetchStudents } from '../../lib/supabaseService';
 import {
   Users, BookOpen, FileText, CheckCircle, Clock, AlertCircle,
-  ArrowRight, TrendingUp, Award, BarChart2, DownloadCloud, Loader
+  ArrowRight, TrendingUp, Award, BarChart2, DownloadCloud, Loader, Star
 } from 'lucide-react';
 import styled from 'styled-components';
 import { exportGradesCsv } from '../../utils/exportCsv';
@@ -15,7 +15,17 @@ import { useToastStore } from '../../store/toastStore';
 
 const Container = styled.div` padding: 1rem; `;
 
-const Header = styled.div` margin-bottom: 2.5rem; `;
+const Header = styled.div` margin-bottom: 2.5rem; display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 1rem; `;
+
+const RateUsBtn = styled.button`
+  display: flex; align-items: center; gap: 0.5rem;
+  padding: 0.65rem 1.25rem; border-radius: 12px;
+  background: ${({ theme }) => theme.colors.secondary};
+  color: white; font-weight: 800; font-size: 0.85rem;
+  box-shadow: 0 4px 12px rgba(218, 165, 32, 0.3);
+  border: none;
+  &:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(218, 165, 32, 0.4); }
+`;
 
 const Greeting = styled.h1`
   font-size: 2.25rem; font-weight: 800; color: ${({ theme }) => theme.colors.text.main};
@@ -222,8 +232,15 @@ const LecturerDashboard = () => {
   return (
     <Container>
       <Header>
-        <Greeting>Welcome back, {user?.name?.split(' ')[0]}!</Greeting>
-        <SubGreeting>Here's an overview of your academic system.</SubGreeting>
+        <div>
+          <Greeting>Welcome back, {user?.name?.split(' ')[0]}!</Greeting>
+          <SubGreeting>Here's an overview of your academic system.</SubGreeting>
+        </div>
+        {!user?.post_interview_completed && assignments.length > 0 && submissions.length > 0 && (
+          <RateUsBtn onClick={() => navigate('/post-interview')}>
+            <Star size={16} strokeWidth={2.5} /> Rate Us
+          </RateUsBtn>
+        )}
       </Header>
 
       <StatsGrid>
