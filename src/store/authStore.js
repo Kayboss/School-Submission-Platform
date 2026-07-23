@@ -51,10 +51,14 @@ export const useAuthStore = create(
             // Auto-complete onboarding for ALL existing users with profiles.
             // Only brand-new student signups (flag set in signUp) should see onboarding.
             if (!profile.onboarding_completed) {
-              const pendingOnboarding = localStorage.getItem('tatu_pending_onboarding');
-              if (!pendingOnboarding || pendingOnboarding !== session.user.id) {
-                await supabase.from('profiles').update({ onboarding_completed: true }).eq('id', session.user.id);
-                profile.onboarding_completed = true;
+              try {
+                const pendingOnboarding = localStorage.getItem('tatu_pending_onboarding');
+                if (!pendingOnboarding || pendingOnboarding !== session.user.id) {
+                  await supabase.from('profiles').update({ onboarding_completed: true }).eq('id', session.user.id);
+                  profile.onboarding_completed = true;
+                }
+              } catch (e) {
+                console.error('Auto-complete onboarding failed:', e);
               }
             }
             set({
@@ -84,10 +88,14 @@ export const useAuthStore = create(
             if (profile) {
               // Also auto-complete onboarding here as a safety net
               if (!profile.onboarding_completed) {
-                const pendingOnboarding = localStorage.getItem('tatu_pending_onboarding');
-                if (!pendingOnboarding || pendingOnboarding !== session.user.id) {
-                  await supabase.from('profiles').update({ onboarding_completed: true }).eq('id', session.user.id);
-                  profile.onboarding_completed = true;
+                try {
+                  const pendingOnboarding = localStorage.getItem('tatu_pending_onboarding');
+                  if (!pendingOnboarding || pendingOnboarding !== session.user.id) {
+                    await supabase.from('profiles').update({ onboarding_completed: true }).eq('id', session.user.id);
+                    profile.onboarding_completed = true;
+                  }
+                } catch (e) {
+                  console.error('Auto-complete onboarding failed:', e);
                 }
               }
               set({

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Navigate } from 'react-router-dom';
 import styled, { keyframes } from 'styled-components';
 import { supabase } from '../../lib/supabase';
 import { useAuthStore } from '../../store/authStore';
@@ -388,7 +388,13 @@ const LIKERT_LABELS = ['SA', 'A', 'N', 'D', 'SD'];
 const OnboardingWizard = () => {
   const navigate = useNavigate();
   const user = useAuthStore(s => s.user);
+  const role = useAuthStore(s => s.role);
   const addToast = useToastStore(s => s.addToast);
+
+  const effectiveRole = role || user?.role;
+  if (effectiveRole && effectiveRole !== 'student') {
+    return <Navigate to="/" replace />;
+  }
   const [step, setStep] = useState(0);
   const [submitting, setSubmitting] = useState(false);
 

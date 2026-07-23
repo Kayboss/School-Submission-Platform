@@ -79,25 +79,8 @@ const CheckAuth = ({ children }) => {
   return children;
 };
 
-// Onboarding Guard — redirects students to /onboarding if not completed
+// Onboarding Guard — currently disabled
 const OnboardingGuard = ({ children }) => {
-  const user = useAuthStore(state => state.user);
-  const role = useAuthStore(state => state.role);
-  const location = useLocation();
-
-  if (!user) return children;
-
-  const effectiveRole = role || user?.role;
-  if (effectiveRole && effectiveRole !== 'student') return children;
-
-  if (effectiveRole === 'student' && !user.onboarding_completed && location.pathname !== '/onboarding') {
-    return <Navigate to="/onboarding" replace />;
-  }
-
-  if (effectiveRole === 'student' && user.onboarding_completed && location.pathname === '/onboarding') {
-    return <Navigate to="/" replace />;
-  }
-
   return children;
 };
 
