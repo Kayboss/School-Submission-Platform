@@ -441,7 +441,6 @@ const STUDENT_SECTIONS = {
     'The system solved the storage problems I previously experienced.',
     'The system is more convenient than flash drives.',
     'The system should replace existing submission methods.',
-    'Overall, the system improved the management of academic files.',
   ],
 };
 
