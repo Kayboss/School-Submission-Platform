@@ -247,7 +247,7 @@ const Layout = () => {
               </NavLink>
             </>
           )}
-          {user?.role === 'lecturer' && (
+          {(user?.role === 'lecturer' || user?.role === 'admin') && (
             <>
               <NavLink to="/lecturer/students" $active={location.pathname.startsWith('/lecturer/students')} onClick={() => setSidebarOpen(false)}>
                 <Users size={18} /> Students
