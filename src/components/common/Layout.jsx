@@ -258,10 +258,12 @@ const Layout = () => {
               <NavLink to="/lecturer/assignments" $active={location.pathname.startsWith('/lecturer/assignments')} onClick={() => setSidebarOpen(false)}>
                 <Edit3 size={18} /> Assignments
               </NavLink>
-              <NavLink to="/history" $active={location.pathname === '/history'} onClick={() => setSidebarOpen(false)}>
-                <Archive size={18} /> Archive
-              </NavLink>
             </>
+          )}
+          {user?.role === 'lecturer' && (
+            <NavLink to="/history" $active={location.pathname === '/history'} onClick={() => setSidebarOpen(false)}>
+              <Archive size={18} /> Archive
+            </NavLink>
           )}
           {user?.role === 'admin' && (
             <NavLink to="/analytics" $active={location.pathname === '/analytics'} onClick={() => setSidebarOpen(false)}>
