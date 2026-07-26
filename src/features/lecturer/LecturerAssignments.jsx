@@ -57,27 +57,32 @@ const LecturerAssignments = () => {
   const [aAllowResub, setAAllowResub] = useState(true);
   const [aMaxResub, setAMaxResub] = useState('3');
 
-  const handleCreateAssignment = (e) => {
+  const handleCreateAssignment = async (e) => {
     e.preventDefault();
     if (!aTitle || !aDesc || !aDue) return;
     setIsCreating(true);
-    createAssignment({
-      courseCode: aCourse,
-      title: aTitle,
-      description: aDesc,
-      dueDate: new Date(aDue).toISOString(),
-      submissionTypes: { document: aDoc, video: aVideo, project: aProject },
-      maxSize: Number(aMaxSize),
-      allowedExtensions: aExt.split(',').map(e => e.trim()),
-      lecturerName: user?.name || 'Lecturer',
-      user_id: user?.id || null,
-    });
+    try {
+      await createAssignment({
+        courseCode: aCourse,
+        title: aTitle,
+        description: aDesc,
+        dueDate: new Date(aDue).toISOString(),
+        submissionTypes: { document: aDoc, video: aVideo, project: aProject },
+        maxSize: Number(aMaxSize),
+        allowedExtensions: aExt.split(',').map(e => e.trim()),
+        lecturerName: user?.name || 'Lecturer',
+        user_id: user?.id || null,
+      });
+      addToast('Assignment created', 'success');
+      setShowCreator(false);
+      setATitle(''); setADesc(''); setADue(''); setAMaxSize('10'); setAExt('.pdf');
+      setADoc(true); setAVideo(false); setAProject(false);
+      setALatePenalty('5'); setAAllowResub(true); setAMaxResub('3');
+    } catch (err) {
+      console.error('Create assignment error:', err);
+      addToast('Failed to create assignment. Please try again.', 'error');
+    }
     setIsCreating(false);
-    addToast('Assignment created', 'success');
-    setShowCreator(false);
-    setATitle(''); setADesc(''); setADue(''); setAMaxSize('10'); setAExt('.pdf');
-    setADoc(true); setAVideo(false); setAProject(false);
-    setALatePenalty('5'); setAAllowResub(true); setAMaxResub('3');
   };
 
   const handleAddCriterion = () => {
