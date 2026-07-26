@@ -234,7 +234,7 @@ const Layout = () => {
           <NavLink to="/courses" $active={location.pathname === '/courses'} onClick={() => setSidebarOpen(false)}>
             <BookOpen size={18} /> Courses
           </NavLink>
-          {user?.role !== 'lecturer' && (
+          {user?.role === 'student' && (
             <>
               <NavLink to="/assignments" $active={location.pathname === '/assignments'} onClick={() => setSidebarOpen(false)}>
                 <ListChecks size={18} /> Assignments
