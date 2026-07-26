@@ -7,6 +7,7 @@ import { useCourseStore } from './store/courseStore';
 import { useAssignmentStore } from './store/assignmentStore';
 import { useSubmissionStore } from './store/submissionStore';
 import { useRubricStore } from './store/rubricStore';
+import { useErrorLogStore } from './store/errorLogStore';
 import { HelmetProvider } from 'react-helmet-async';
 import styled from 'styled-components';
 
@@ -104,6 +105,44 @@ const Dashboard = () => {
   return <StudentDashboard />;
 };
 
+// Captures uncaught errors and unhandled promise rejections
+const ErrorCatcher = () => {
+  const logError = useErrorLogStore(s => s.logError);
+
+  useEffect(() => {
+    const handleError = (event) => {
+      event.preventDefault();
+      logError({
+        message: event.message,
+        stack: event.error?.stack || '',
+        source: 'window.onerror',
+        filename: event.filename,
+        lineno: event.lineno,
+        colno: event.colno,
+      });
+    };
+
+    const handleRejection = (event) => {
+      event.preventDefault();
+      const reason = event.reason;
+      logError({
+        message: reason?.message || String(reason),
+        stack: reason?.stack || '',
+        source: 'unhandledrejection',
+      });
+    };
+
+    window.addEventListener('error', handleError);
+    window.addEventListener('unhandledrejection', handleRejection);
+    return () => {
+      window.removeEventListener('error', handleError);
+      window.removeEventListener('unhandledrejection', handleRejection);
+    };
+  }, [logError]);
+
+  return null;
+};
+
 // Auto-logout after 10 minutes of inactivity
 const IDLE_TIMEOUT = 10 * 60 * 1000;
 
@@ -173,6 +212,7 @@ const App = () => {
         <BrowserRouter>
           <IdleLogout />
           <PageTracker />
+          <ErrorCatcher />
           <ToastContainer />
           <Routes>
             {/* Public Routes */}

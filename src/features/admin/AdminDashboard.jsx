@@ -3,10 +3,11 @@ import styled from 'styled-components';
 import { supabase } from '../../lib/supabase';
 import { useAuthStore } from '../../store/authStore';
 import { useToastStore } from '../../store/toastStore';
+import { useErrorLogStore } from '../../store/errorLogStore';
 import {
   Users, BookOpen, FileText, CheckCircle, Clock, AlertCircle,
   Download, BarChart2, Activity, Shield, Calendar, TrendingUp,
-  ArrowUpRight, Loader
+  ArrowUpRight, Loader, AlertTriangle, Trash2
 } from 'lucide-react';
 
 const Container = styled.div` padding: 1rem; `;
@@ -104,6 +105,8 @@ const SectionRow = styled.div`
 const AdminDashboard = () => {
   const user = useAuthStore(s => s.user);
   const addToast = useToastStore(s => s.addToast);
+  const errors = useErrorLogStore(s => s.errors);
+  const clearErrors = useErrorLogStore(s => s.clearErrors);
   const [activeTab, setActiveTab] = useState('overview');
   const [loading, setLoading] = useState(true);
 
@@ -274,6 +277,9 @@ const AdminDashboard = () => {
         </Tab>
         <Tab $active={activeTab === 'devices'} onClick={() => setActiveTab('devices')}>
           <Shield size={14} /> Devices
+        </Tab>
+        <Tab $active={activeTab === 'errors'} onClick={() => setActiveTab('errors')}>
+          <AlertTriangle size={14} /> Error Log {errors.length > 0 && `(${errors.length})`}
         </Tab>
         <Tab $active={activeTab === 'export'} onClick={() => setActiveTab('export')}>
           <Download size={14} /> Export
@@ -535,6 +541,89 @@ const AdminDashboard = () => {
               </tbody>
             </Table>
           </TableContainer>
+        </>
+      )}
+
+      {activeTab === 'errors' && (
+        <>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+            <div>
+              <h3 style={{ fontWeight: 800, fontSize: '1.25rem', color: '#1c1c19' }}>Client-Side Error Log</h3>
+              <p style={{ fontSize: '0.85rem', color: '#55433c', fontWeight: 600 }}>
+                {errors.length} error{errors.length !== 1 ? 's' : ''} captured from the browser console
+              </p>
+            </div>
+            <div style={{ display: 'flex', gap: '0.75rem' }}>
+              {errors.length > 0 && (
+                <ActionBtn $color="#b35a38" onClick={() => {
+                  exportCsv(errors.map(e => ({
+                    message: e.message,
+                    source: e.source,
+                    filename: e.filename,
+                    lineno: e.lineno,
+                    url: e.url,
+                    timestamp: e.timestamp,
+                  })), 'error_log.csv');
+                }}>
+                  <Download size={14} /> Export CSV
+                </ActionBtn>
+              )}
+              {errors.length > 0 && (
+                <ActionBtn $color="#999" onClick={clearErrors}>
+                  <Trash2 size={14} /> Clear All
+                </ActionBtn>
+              )}
+            </div>
+          </div>
+
+          {errors.length === 0 ? (
+            <ChartCard>
+              <div style={{ textAlign: 'center', padding: '3rem', color: '#55433c' }}>
+                <CheckCircle size={40} style={{ margin: '0 auto 1rem', opacity: 0.3, color: '#4a7c59' }} />
+                <p style={{ fontWeight: 700, fontSize: '1.125rem' }}>No errors captured</p>
+                <p style={{ fontSize: '0.875rem' }}>Client-side errors will appear here automatically.</p>
+              </div>
+            </ChartCard>
+          ) : (
+            <TableContainer>
+              <Table>
+                <thead>
+                  <tr>
+                    <Th>Time</Th>
+                    <Th>Error</Th>
+                    <Th>Source</Th>
+                    <Th>Location</Th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {errors.map(e => (
+                    <Tr key={e.id}>
+                      <Td style={{ fontSize: '0.8rem', whiteSpace: 'nowrap' }}>
+                        {new Date(e.timestamp).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })}
+                      </Td>
+                      <Td style={{ maxWidth: '400px' }}>
+                        <div style={{ fontWeight: 700, fontSize: '0.85rem', color: '#b35a38' }}>{e.message}</div>
+                        {e.stack && (
+                          <pre style={{ fontSize: '0.7rem', color: '#999', marginTop: '0.25rem', whiteSpace: 'pre-wrap', maxHeight: '60px', overflow: 'hidden' }}>
+                            {e.stack.split('\n').slice(0, 2).join('\n')}
+                          </pre>
+                        )}
+                      </Td>
+                      <Td>
+                        <span style={{ padding: '0.2rem 0.5rem', borderRadius: '4px', fontSize: '0.7rem', fontWeight: 700, background: e.source === 'unhandledrejection' ? '#daa52015' : '#b35a3815', color: e.source === 'unhandledrejection' ? '#daa520' : '#b35a38' }}>
+                          {e.source}
+                        </span>
+                      </Td>
+                      <Td style={{ fontSize: '0.8rem', color: '#55433c' }}>
+                        {e.filename || e.url || '—'}
+                        {e.lineno ? `:${e.lineno}` : ''}
+                      </Td>
+                    </Tr>
+                  ))}
+                </tbody>
+              </Table>
+            </TableContainer>
+          )}
         </>
       )}
 
