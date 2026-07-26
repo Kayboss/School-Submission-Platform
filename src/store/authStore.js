@@ -5,16 +5,21 @@ import { fetchAcceptedCourses, acceptCourse as dbAcceptCourse, removeAcceptedCou
 import { logActivity, startSession, endSession, ACTIONS } from '../lib/activityService';
 
 async function getProfile(userId) {
-  const { data, error } = await supabase
-    .from('profiles')
-    .select('*')
-    .eq('id', userId)
-    .maybeSingle();
-  if (error) {
-    console.error('Profile fetch error:', error.message);
+  try {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', userId)
+      .maybeSingle();
+    if (error) {
+      console.error('Profile fetch error:', error.message);
+      return null;
+    }
+    return data;
+  } catch (e) {
+    console.error('Profile fetch network error:', e.message);
     return null;
   }
-  return data;
 }
 
 export const useAuthStore = create(
