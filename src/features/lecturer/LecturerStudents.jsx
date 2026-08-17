@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 import { Users, Search, Mail, BookOpen, CheckCircle, Clock, AlertCircle, Loader } from 'lucide-react';
 import { fetchStudents } from '../../lib/supabaseService';
+import { useAuthStore } from '../../store/authStore';
 import { Container } from './lecturerStyles';
 
 const Header = styled.div`
@@ -168,16 +169,17 @@ const EmptyState = styled.div`
 `;
 
 const LecturerStudents = () => {
+  const user = useAuthStore(s => s.user);
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
 
   useEffect(() => {
-    fetchStudents()
+    fetchStudents(user)
       .then(setStudents)
       .catch(() => setStudents([]))
       .finally(() => setLoading(false));
-  }, []);
+  }, [user]);
 
   const filtered = students.filter(s =>
     s.name?.toLowerCase().includes(search.toLowerCase()) ||
@@ -204,7 +206,7 @@ const LecturerStudents = () => {
     <Container>
       <Header>
         <Title>Students</Title>
-        <Subtitle>{students.length} student{students.length !== 1 ? 's' : ''} registered on the system</Subtitle>
+        <Subtitle>{students.length} student{students.length !== 1 ? 's' : ''} enrolled in your courses</Subtitle>
       </Header>
 
       <SearchBar>

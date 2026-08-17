@@ -1,14 +1,19 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import styled from 'styled-components';
 import { supabase } from '../../lib/supabase';
+import { fetchCourseEnrollments, fetchStudents } from '../../lib/supabaseService';
 import { useAuthStore } from '../../store/authStore';
 import { useToastStore } from '../../store/toastStore';
 import { useErrorLogStore } from '../../store/errorLogStore';
+import { logActivity, ACTIONS } from '../../lib/activityService';
 import {
   Users, BookOpen, FileText, CheckCircle, Clock, AlertCircle,
   Download, BarChart2, Activity, Shield, Calendar, TrendingUp,
-  ArrowUpRight, Loader, AlertTriangle, Trash2
+  ArrowUpRight, Loader, AlertTriangle, Trash2, X, Mail
 } from 'lucide-react';
+import {
+  Overlay, Modal, ModalTitle, ModalSub, ModalActions, PrimaryBtn
+} from '../lecturer/lecturerStyles';
 
 const Container = styled.div` padding: 1rem; `;
 const Header = styled.div` margin-bottom: 2rem; `;
@@ -97,10 +102,70 @@ const RoleBadge = styled.span`
     $role === 'lecturer' ? '#daa520' : '#4a7c59'};
 `;
 
+const RoleSelect = styled.select`
+  padding: 0.35rem 0.6rem; border-radius: 6px;
+  font-size: 0.7rem; font-weight: 800; text-transform: uppercase;
+  border: 1.5px solid ${({ theme }) => theme.colors.border}40;
+  background: ${({ $role }) =>
+    $role === 'admin' ? '#6d28d915' :
+    $role === 'lecturer' ? '#daa52015' : '#4a7c5915'};
+  color: ${({ $role }) =>
+    $role === 'admin' ? '#6d28d9' :
+    $role === 'lecturer' ? '#daa520' : '#4a7c59'};
+  cursor: pointer; outline: none;
+  &:focus { border-color: ${({ theme }) => theme.colors.primary}; }
+  &:disabled { cursor: wait; opacity: 0.5; }
+`;
+
 const SectionRow = styled.div`
   display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 1.5rem;
   @media (max-width: 900px) { grid-template-columns: 1fr; }
 `;
+
+const ViewStudentsBtn = styled.button`
+  display: inline-flex; align-items: center; gap: 0.4rem;
+  padding: 0.35rem 0.75rem; border: none; border-radius: ${({ theme }) => theme.borderRadius.full};
+  background: ${({ theme }) => theme.colors.primary}12; color: ${({ theme }) => theme.colors.primary};
+  font-size: 0.72rem; font-weight: 800; cursor: pointer; white-space: nowrap;
+  &:hover { background: ${({ theme }) => theme.colors.primary}22; transform: translateY(-1px); }
+`;
+
+const StudentList = styled.div`
+  max-height: 400px; overflow-y: auto; margin-bottom: 1.5rem;
+  border: 1px solid ${({ theme }) => theme.colors.border}20; border-radius: ${({ theme }) => theme.borderRadius.medium};
+`;
+
+const StudentItem = styled.div`
+  display: flex; align-items: center; gap: 1rem;
+  padding: 0.875rem 1.25rem; border-bottom: 1px solid ${({ theme }) => theme.colors.background.alt};
+  &:last-child { border-bottom: none; }
+`;
+
+const StudentItemAvatar = styled.div`
+  width: 40px; height: 40px; border-radius: 12px; flex-shrink: 0;
+  background: ${({ theme }) => theme.colors.primary}15; color: ${({ theme }) => theme.colors.primary};
+  display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 0.95rem;
+`;
+
+const StudentItemInfo = styled.div` flex: 1; min-width: 0; `;
+const StudentItemName = styled.p` font-size: 0.9rem; font-weight: 800; color: ${({ theme }) => theme.colors.text.main}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; `;
+const StudentItemMeta = styled.p` font-size: 0.75rem; color: #55433c; font-weight: 600; display: flex; align-items: center; gap: 0.3rem; margin-top: 2px; `;
+
+const StudentChip = styled.span`
+  display: inline-flex; align-items: center; padding: 0.25rem 0.6rem; border-radius: 6px;
+  font-size: 0.7rem; font-weight: 800; white-space: nowrap;
+  background: ${({ $color }) => $color}15; color: ${({ $color }) => $color};
+`;
+
+const ModalClose = styled.button`
+  position: absolute; top: 1.25rem; right: 1.25rem;
+  width: 34px; height: 34px; border-radius: 10px; border: none;
+  background: ${({ theme }) => theme.colors.background.alt}; color: ${({ theme }) => theme.colors.text.muted};
+  display: flex; align-items: center; justify-content: center; cursor: pointer;
+  &:hover { color: ${({ theme }) => theme.colors.primary}; }
+`;
+
+const EmptyModal = styled.p` text-align: center; padding: 2.5rem 1rem; color: #55433c; font-weight: 600; `;
 
 const AdminDashboard = () => {
   const user = useAuthStore(s => s.user);
@@ -116,6 +181,24 @@ const AdminDashboard = () => {
   const [submissions, setSubmissions] = useState([]);
   const [assignments, setAssignments] = useState([]);
   const [courses, setCourses] = useState([]);
+  const [students, setStudents] = useState([]);
+  const [enrollmentByCourse, setEnrollmentByCourse] = useState({});
+  const [courseStudents, setCourseStudents] = useState(null);
+  const [updatingRoleId, setUpdatingRoleId] = useState(null);
+
+  const handleRoleChange = async (p, newRole) => {
+    if (newRole === p.role) return;
+    setUpdatingRoleId(p.id);
+    const { error } = await supabase.from('profiles').update({ role: newRole }).eq('id', p.id);
+    setUpdatingRoleId(null);
+    if (error) {
+      addToast('Failed to update role', 'error');
+      return;
+    }
+    setProfiles(prev => prev.map(x => x.id === p.id ? { ...x, role: newRole } : x));
+    addToast(`Role updated to ${newRole}`, 'success');
+    logActivity(ACTIONS.CHANGE_ROLE, 'user', p.id, { from: p.role, to: newRole });
+  };
 
   useEffect(() => {
     async function load() {
@@ -134,10 +217,25 @@ const AdminDashboard = () => {
       setSubmissions(sub.data || []);
       setAssignments(ass.data || []);
       setCourses(cor.data || []);
+
+      const [enrollments, enrolledStudents] = await Promise.all([
+        fetchCourseEnrollments(),
+        fetchStudents(user),
+      ]);
+      const map = {};
+      (enrollments || []).forEach(r => { map[r.course_id] = Number(r.enrolled) || 0; });
+      setEnrollmentByCourse(map);
+      setStudents(enrolledStudents || []);
+
       setLoading(false);
     }
     load();
-  }, []);
+  }, [user]);
+
+  const courseStudentList = useMemo(() => {
+    if (!courseStudents) return [];
+    return students.filter(s => (s.courses || []).includes(courseStudents.code));
+  }, [students, courseStudents]);
 
   const stats = useMemo(() => ({
     totalUsers: profiles.length,
@@ -151,10 +249,11 @@ const AdminDashboard = () => {
     totalAssignments: assignments.length,
     totalCourses: courses.length,
     totalSessions: sessions.length,
+    totalEnrolled: Object.values(enrollmentByCourse).reduce((a, b) => a + b, 0),
     avgScore: submissions.filter(s => s.score != null).length > 0
       ? Math.round(submissions.filter(s => s.score != null).reduce((a, s) => a + s.score, 0) / submissions.filter(s => s.score != null).length)
       : 0
-  }), [profiles, submissions, assignments, courses, sessions]);
+  }), [profiles, submissions, assignments, courses, sessions, enrollmentByCourse]);
 
   const actionBreakdown = useMemo(() => {
     const counts = {};
@@ -185,6 +284,7 @@ const AdminDashboard = () => {
       return {
         code: c.code,
         name: c.name,
+        enrolled: enrollmentByCourse[c.id] || 0,
         total: cs.length,
         graded: cs.filter(s => s.status === 'Graded').length,
         avg: cs.filter(s => s.score != null).length > 0
@@ -192,7 +292,7 @@ const AdminDashboard = () => {
           : 0
       };
     });
-  }, [courses, submissions]);
+  }, [courses, submissions, enrollmentByCourse]);
 
   const dailyActivity = useMemo(() => {
     const days = {};
@@ -291,8 +391,8 @@ const AdminDashboard = () => {
           <StatsGrid>
             <StatCard $accent="#b35a38"><StatLabel>Total Users</StatLabel><StatValue>{stats.totalUsers}</StatValue></StatCard>
             <StatCard $accent="#daa520"><StatLabel>Submissions</StatLabel><StatValue>{stats.totalSubmissions}</StatValue></StatCard>
-            <StatCard $accent="#4a7c59"><StatLabel>Avg Score</StatLabel><StatValue>{stats.avgScore}%</StatValue></StatCard>
-            <StatCard $accent="#6F240A"><StatLabel>Sessions</StatLabel><StatValue>{stats.totalSessions}</StatValue></StatCard>
+            <StatCard $accent="#4a7c59"><StatLabel>Students Enrolled</StatLabel><StatValue>{stats.totalEnrolled}</StatValue></StatCard>
+            <StatCard $accent="#6F240A"><StatLabel>Avg Score</StatLabel><StatValue>{stats.avgScore}%</StatValue></StatCard>
           </StatsGrid>
 
           <SectionRow>
@@ -320,12 +420,14 @@ const AdminDashboard = () => {
           </SectionRow>
 
           <ChartCard>
-            <ChartTitle>Submissions by Course</ChartTitle>
+            <ChartTitle>Enrollment &amp; Submissions by Course</ChartTitle>
             {courseStats.map(c => (
               <BarRow key={c.code}>
                 <BarLabel style={{ width: '70px' }}>{c.code}</BarLabel>
                 <BarTrack><BarFill $color="#daa520" $pct={stats.totalSubmissions > 0 ? (c.total / stats.totalSubmissions) * 100 : 0} /></BarTrack>
                 <BarCount>{c.total}</BarCount>
+                <span style={{ width: '90px', fontSize: '0.7rem', fontWeight: 700, color: '#55433c' }}>{c.enrolled} enrolled</span>
+                <ViewStudentsBtn onClick={() => setCourseStudents(c)}><Users size={13} /> View Students</ViewStudentsBtn>
               </BarRow>
             ))}
           </ChartCard>
@@ -349,7 +451,23 @@ const AdminDashboard = () => {
                   <Tr key={p.id}>
                     <Td style={{ fontWeight: 800 }}>{p.name}</Td>
                     <Td>{p.email}</Td>
-                    <Td><RoleBadge $role={p.role}>{p.role}</RoleBadge></Td>
+                    <Td>
+                      {p.id === user?.id ? (
+                        <RoleBadge $role={p.role}>{p.role} (you)</RoleBadge>
+                      ) : (
+                        <RoleSelect
+                          $role={p.role}
+                          value={p.role}
+                          disabled={updatingRoleId === p.id}
+                          onChange={e => handleRoleChange(p, e.target.value)}
+                          title="Change role"
+                        >
+                          <option value="student">student</option>
+                          <option value="lecturer">lecturer</option>
+                          <option value="admin">admin</option>
+                        </RoleSelect>
+                      )}
+                    </Td>
                     <Td>{new Date(p.created_at).toLocaleDateString('en-GB', { dateStyle: 'medium' })}</Td>
                   </Tr>
                 ))}
@@ -406,12 +524,13 @@ const AdminDashboard = () => {
           </ChartCard>
 
           <ChartCard>
-            <ChartTitle>Submissions by Course</ChartTitle>
+            <ChartTitle>Enrollment &amp; Submissions by Course</ChartTitle>
             {courseStats.map(c => (
               <BarRow key={c.code}>
                 <BarLabel style={{ width: '70px' }}>{c.code}</BarLabel>
                 <BarTrack><BarFill $color="#daa520" $pct={stats.totalSubmissions > 0 ? (c.total / stats.totalSubmissions) * 100 : 0} /></BarTrack>
-                <BarCount>{c.total} <span style={{ fontSize: '0.65rem', color: '#55433c' }}>({c.avg}%)</span></BarCount>
+                <BarCount>{c.total}</BarCount>
+                <span style={{ width: '90px', fontSize: '0.7rem', fontWeight: 700, color: '#55433c' }}>{c.enrolled} enrolled</span>
               </BarRow>
             ))}
           </ChartCard>
@@ -433,11 +552,12 @@ const AdminDashboard = () => {
 
           <TableContainer>
             <Table>
-              <thead><tr><Th>Course</Th><Th>Total Subs</Th><Th>Graded</Th><Th>Avg Score</Th></tr></thead>
+              <thead><tr><Th>Course</Th><Th>Enrolled</Th><Th>Total Subs</Th><Th>Graded</Th><Th>Avg Score</Th></tr></thead>
               <tbody>
                 {courseStats.map(c => (
                   <Tr key={c.code}>
                     <Td style={{ fontWeight: 800 }}>{c.code} — {c.name}</Td>
+                    <Td><span style={{ fontWeight: 900, color: '#b35a38' }}>{c.enrolled}</span></Td>
                     <Td>{c.total}</Td>
                     <Td>{c.graded}</Td>
                     <Td><span style={{ fontWeight: 900, color: c.avg >= 70 ? '#4a7c59' : c.avg >= 50 ? '#daa520' : '#b35a38' }}>{c.avg}%</span></Td>
@@ -677,6 +797,39 @@ const AdminDashboard = () => {
             </StatCard>
           </StatsGrid>
         </>
+      )}
+
+      {courseStudents && (
+        <Overlay onClick={() => setCourseStudents(null)}>
+          <Modal onClick={e => e.stopPropagation()} style={{ width: 'min(620px, 92vw)', position: 'relative' }}>
+            <ModalClose onClick={() => setCourseStudents(null)}><X size={16} /></ModalClose>
+            <ModalTitle>{courseStudents.code} — Enrolled Students</ModalTitle>
+            <ModalSub>{courseStudents.name} &middot; {courseStudentList.length} student{courseStudentList.length !== 1 ? 's' : ''} enrolled</ModalSub>
+            {courseStudentList.length === 0 ? (
+              <EmptyModal>No students have enrolled in this course yet.</EmptyModal>
+            ) : (
+              <StudentList>
+                {courseStudentList.map(s => (
+                  <StudentItem key={s.userId || s.id}>
+                    <StudentItemAvatar>{s.name?.charAt(0)?.toUpperCase() || '?'}</StudentItemAvatar>
+                    <StudentItemInfo>
+                      <StudentItemName>{s.name}</StudentItemName>
+                      <StudentItemMeta>
+                        <Mail size={11} /> {s.email} {s.id && s.id !== s.userId && ` · ID: ${s.id}`}
+                      </StudentItemMeta>
+                    </StudentItemInfo>
+                    {s.submitted > 0 && <StudentChip $color="#4a7c59">{s.submitted} graded</StudentChip>}
+                    {s.pending > 0 && <StudentChip $color="#daa520">{s.pending} pending</StudentChip>}
+                    {s.overdue > 0 && <StudentChip $color="#b35a38">{s.overdue} overdue</StudentChip>}
+                  </StudentItem>
+                ))}
+              </StudentList>
+            )}
+            <ModalActions>
+              <PrimaryBtn onClick={() => setCourseStudents(null)}>Done</PrimaryBtn>
+            </ModalActions>
+          </Modal>
+        </Overlay>
       )}
     </Container>
   );

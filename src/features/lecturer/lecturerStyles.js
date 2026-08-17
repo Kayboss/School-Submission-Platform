@@ -167,7 +167,8 @@ export const FormInput = styled.input`
 export const FormTextarea = styled.textarea`
   padding: 0.75rem 1rem; border: 1.5px solid ${({ theme }) => theme.colors.border}60;
   border-radius: ${({ theme }) => theme.borderRadius.medium}; font-size: 0.9rem; font-weight: 600;
-  resize: vertical; min-height: 80px; &:focus { outline: none; border-color: ${({ theme }) => theme.colors.primary}; }
+  resize: vertical; min-height: 160px; width: 100%; font-family: ${({ theme }) => theme.fonts?.body || 'inherit'};
+  &:focus { outline: none; border-color: ${({ theme }) => theme.colors.primary}; }
 `;
 export const FormSelect = styled.select`
   padding: 0.75rem 1rem; border: 1.5px solid ${({ theme }) => theme.colors.border}60;

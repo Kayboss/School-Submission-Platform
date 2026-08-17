@@ -10,6 +10,7 @@ import { useSubmissionStore } from '../../store/submissionStore';
 import { useCourseStore } from '../../store/courseStore';
 import { useAuthStore } from '../../store/authStore';
 import { useToastStore } from '../../store/toastStore';
+import { useUploadStore } from '../../store/uploadStore';
 import { supabase } from '../../lib/supabase';
 
 const getCurrentSemester = () => {
@@ -230,6 +231,11 @@ const UploadPortal = () => {
   const user = useAuthStore(s => s.user);
   const acceptedCourses = useAuthStore(s => s.acceptedCourses);
   const addToast = useToastStore(s => s.addToast);
+  const startUpload = useUploadStore(s => s.startUpload);
+  const updateProgress = useUploadStore(s => s.updateProgress);
+  const completeUpload = useUploadStore(s => s.completeUpload);
+  const failUpload = useUploadStore(s => s.failUpload);
+  const clearUploads = useUploadStore(s => s.clearUploads);
 
   const acceptedCourseCodes = courses
     .filter(c => acceptedCourses.includes(c.id))
@@ -309,6 +315,7 @@ const UploadPortal = () => {
   const handleSubmit = async () => {
     if (!selectedAssignId || (files.length === 0 && !videoLink)) return;
     setIsSubmitting(true);
+    clearUploads();
 
     const now = new Date();
     const dueDate = new Date(selectedAssign.dueDate);
@@ -325,15 +332,32 @@ const UploadPortal = () => {
 
     const uploadedFiles = [];
     for (const f of files) {
+      const uploadId = `${f.id}`;
+      startUpload(uploadId, f.sanitizedName, f.file.size);
+
       const storagePath = `${selectedAssignId}/${user?.id}/${Date.now()}_${f.sanitizedName}`;
+
+      const progressInterval = setInterval(() => {
+        const current = useUploadStore.getState().uploads.find(u => u.id === uploadId);
+        if (current && current.progress < 90) {
+          updateProgress(uploadId, current.progress + Math.random() * 15 + 5);
+        }
+      }, 300);
+
       const { error: uploadError } = await supabase.storage
         .from('submission-files')
         .upload(storagePath, f.file, { upsert: false });
+
+      clearInterval(progressInterval);
+
       if (uploadError) {
+        failUpload(uploadId, uploadError.message);
         addToast(`Failed to upload ${f.sanitizedName}: ${uploadError.message}`, 'error');
         setIsSubmitting(false);
         return;
       }
+
+      completeUpload(uploadId);
       uploadedFiles.push({
         name: f.sanitizedName,
         size: +(f.file.size / 1024 / 1024).toFixed(2),
@@ -517,7 +541,7 @@ const UploadPortal = () => {
               />
               {videoLink && getEmbedUrl(videoLink) && (
                 <EmbedPreview>
-                  <iframe src={getEmbedUrl(videoLink)} title="Video preview" allowFullScreen />
+                  <iframe src={getEmbedUrl(videoLink)} title="Video preview" allowFullScreen sandbox="allow-scripts allow-same-origin allow-presentation allow-popups" referrerPolicy="no-referrer" />
                 </EmbedPreview>
               )}
             </>

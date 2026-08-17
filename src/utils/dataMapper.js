@@ -38,6 +38,7 @@ export function mapAssignment(ass) {
     latePenalty: ass.late_penalty,
     allowResubmission: ass.allow_resubmission,
     maxResubmissions: ass.max_resubmissions,
+    attachments: ass.attachments || [],
     createdAt: ass.created_at,
   };
 }
@@ -54,6 +55,7 @@ export function mapCourse(c) {
     credits: c.credits,
     schedule: c.schedule,
     image: c.image,
+    attachments: c.attachments || [],
   };
 }
 

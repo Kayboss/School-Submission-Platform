@@ -14,12 +14,17 @@ import {
   Image as ImageIcon,
   Camera,
   Check, Loader,
-  ClipboardList
+  ClipboardList,
+  Paperclip,
+  Upload,
+  FileText
 } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
 import { useCourseStore } from '../../store/courseStore';
+import { supabase } from '../../lib/supabase';
 import { useAssignmentStore } from '../../store/assignmentStore';
 import { useToastStore } from '../../store/toastStore';
+import { useUploadStore } from '../../store/uploadStore';
 
 const Container = styled.div`
   padding: 1rem;
@@ -222,6 +227,23 @@ const AssignLink = styled.button`
   }
 `;
 
+const CardAttachRow = styled.a`
+  display: flex; align-items: center; gap: 0.4rem; padding: 0.35rem 0.55rem;
+  background: ${({ theme }) => theme.colors.background?.alt || '#f5f5f5'};
+  border-radius: 6px; text-decoration: none; font-size: 0.75rem; font-weight: 600;
+  color: ${({ theme }) => theme.colors.text.main};
+  transition: background 0.15s;
+  &:hover { background: ${({ theme }) => theme.colors.primary}12; }
+`;
+
+const CardAttachName = styled.span`
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1;
+`;
+
+const CardAttachSize = styled.span`
+  font-size: 0.65rem; color: ${({ theme }) => theme.colors.text.muted}; flex-shrink: 0;
+`;
+
 const CardFooter = styled.div`
   padding: 1.25rem 2rem;
   background: ${({ theme }) => theme.colors.background.alt}40;
@@ -299,6 +321,8 @@ const Modal = styled.div`
   border-radius: ${({ theme }) => theme.borderRadius.medium};
   padding: 2.5rem;
   width: 500px;
+  max-height: 90vh;
+  overflow-y: auto;
   box-shadow: ${({ theme }) => theme.shadows.large};
   position: relative;
   @media (max-width: 600px) { width: 90vw; padding: 1.5rem; }
@@ -398,6 +422,78 @@ const ModalActions = styled.div`
   display: flex;
   gap: 1rem;
   margin-top: 2rem;
+`;
+
+const DayPicker = styled.div`
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+`;
+
+const DayChip = styled.button`
+  padding: 0.5rem 0.875rem;
+  border-radius: 8px;
+  border: 1.5px solid ${({ $active, theme }) => $active ? theme.colors.primary : theme.colors.border + '60'};
+  background: ${({ $active, theme }) => $active ? theme.colors.primary + '15' : 'white'};
+  color: ${({ $active, theme }) => $active ? theme.colors.primary : theme.colors.text.muted};
+  font-weight: 700;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  &:hover { border-color: ${({ theme }) => theme.colors.primary}; }
+`;
+
+const TimeRow = styled.div`
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+`;
+
+const TimeInput = styled.input`
+  flex: 1;
+  padding: 0.75rem 1rem;
+  border: 1.5px solid ${({ theme }) => theme.colors.border}60;
+  border-radius: ${({ theme }) => theme.borderRadius.medium};
+  font-size: 0.9375rem;
+  font-weight: 600;
+  &:focus { outline: none; border-color: ${({ theme }) => theme.colors.primary}; }
+`;
+
+const TimeSeparator = styled.span`
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: ${({ theme }) => theme.colors.text.muted};
+`;
+
+const SchedulePreview = styled.div`
+  margin-top: 0.5rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: ${({ theme }) => theme.colors.text.muted};
+  font-style: italic;
+`;
+
+const AttachUploadArea = styled.div`
+  border: 1.5px dashed ${({ theme }) => theme.colors.border};
+  border-radius: ${({ theme }) => theme.borderRadius.medium};
+  padding: 1.25rem; text-align: center; cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+  &:hover { border-color: ${({ theme }) => theme.colors.primary}; background: ${({ theme }) => theme.colors.primary}08; }
+`;
+
+const AttachList = styled.div`
+  margin-top: 0.5rem; display: flex; flex-direction: column; gap: 0.4rem;
+`;
+
+const AttachItem = styled.div`
+  display: flex; align-items: center; gap: 0.5rem; padding: 0.4rem 0.6rem;
+  background: ${({ theme }) => theme.colors.background?.alt || '#f5f5f5'}; border-radius: 6px;
+  font-size: 0.8rem; font-weight: 600;
+`;
+
+const AttachRemove = styled.button`
+  margin-left: auto; background: none; border: none; color: #b35a38; cursor: pointer; padding: 0.15rem;
+  &:hover { opacity: 0.7; }
 `;
 
 const PrimaryBtn = styled.button`
@@ -534,6 +630,23 @@ const PRESET_COLORS = [
 ];
 
 const CourseList = () => {
+  const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+  const parseSchedule = (str) => {
+    if (!str) return { days: [], start: '', end: '' };
+    const days = DAYS.filter(d => str.includes(d));
+    const timeMatch = str.match(/(\d{1,2}:\d{2})\s*(?:AM|PM)?(?:\s*-\s*(\d{1,2}:\d{2})\s*(?:AM|PM)?)?/i);
+    return { days, start: timeMatch?.[1] || '', end: timeMatch?.[2] || '' };
+  };
+
+  const composeSchedule = (days, start, end) => {
+    if (days.length === 0) return '';
+    const dayStr = days.join(', ');
+    if (start && end) return `${dayStr} ${start} - ${end}`;
+    if (start) return `${dayStr} ${start}`;
+    return dayStr;
+  };
+
   const user = useAuthStore(state => state.user);
   const acceptedCourses = useAuthStore(state => state.acceptedCourses);
   const acceptCourse = useAuthStore(state => state.acceptCourse);
@@ -543,12 +656,18 @@ const CourseList = () => {
 
   const { courses, addCourse, updateCourse, deleteCourse, uploadCourseImage, deleteCourseImage } = useCourseStore();
   const assignments = useAssignmentStore(state => state.assignments);
+  const startUpload = useUploadStore(s => s.startUpload);
+  const updateProgress = useUploadStore(s => s.updateProgress);
+  const completeUpload = useUploadStore(s => s.completeUpload);
+  const failUpload = useUploadStore(s => s.failUpload);
+  const clearUploads = useUploadStore(s => s.clearUploads);
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editingCourse, setEditingCourse] = useState(null);
   const [assignModalCourse, setAssignModalCourse] = useState(null);
   const [acceptingCourseId, setAcceptingCourseId] = useState(null);
   const [deletingCourseId, setDeletingCourseId] = useState(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState(null);
 
   // Form states
   const [code, setCode] = useState('');
@@ -556,9 +675,33 @@ const CourseList = () => {
   const [instructor, setInstructor] = useState('');
   const [credits, setCredits] = useState('3.0');
   const [schedule, setSchedule] = useState('');
+  const [selectedDays, setSelectedDays] = useState([]);
+  const [startTime, setStartTime] = useState('');
+  const [endTime, setEndTime] = useState('');
   const [accent, setAccent] = useState(PRESET_COLORS[0]);
   const [imagePreview, setImagePreview] = useState(null);
   const [imageFile, setImageFile] = useState(null);
+  const [attachFiles, setAttachFiles] = useState([]);
+  const [downloadingAttach, setDownloadingAttach] = useState(null);
+  const [saving, setSaving] = useState(false);
+
+  const handleDownloadCourseAttach = async (storagePath, fileName) => {
+    setDownloadingAttach(storagePath);
+    const { data, error } = await supabase.storage
+      .from('assignment-files')
+      .createSignedUrl(storagePath, 3600);
+    if (error || !data?.signedUrl) {
+      setDownloadingAttach(null);
+      return;
+    }
+    const a = document.createElement('a');
+    a.href = data.signedUrl;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setDownloadingAttach(null);
+  };
 
   const handleOpenAddModal = () => {
     setEditingCourse(null);
@@ -567,9 +710,13 @@ const CourseList = () => {
     setInstructor(canManageCourses ? user.name : '');
     setCredits('3.0');
     setSchedule('');
+    setSelectedDays([]);
+    setStartTime('');
+    setEndTime('');
     setAccent(PRESET_COLORS[0]);
     setImagePreview(null);
     setImageFile(null);
+    setAttachFiles([]);
     setModalOpen(true);
   };
 
@@ -580,24 +727,73 @@ const CourseList = () => {
     setInstructor(course.instructor);
     setCredits(course.credits);
     setSchedule(course.schedule);
+    const parsed = parseSchedule(course.schedule);
+    setSelectedDays(parsed.days);
+    setStartTime(parsed.start);
+    setEndTime(parsed.end);
     setAccent(course.accent);
     setImagePreview(course.image || null);
     setImageFile(null);
+    setAttachFiles((course.attachments || []).map(att => ({ existing: att })));
     setModalOpen(true);
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!code || !name || !instructor || !schedule) return;
+    const composedSchedule = composeSchedule(selectedDays, startTime, endTime);
+    if (!code || !name || !instructor || !composedSchedule) return;
+    setSaving(true);
+
+    const existingAttachments = attachFiles.filter(f => f.existing).map(f => f.existing);
+    const newFiles = attachFiles.filter(f => !f.existing);
+
+    clearUploads();
+    const uploadedNew = [];
+    for (const f of newFiles) {
+      const uploadId = `course-${Date.now()}-${f.file.name}`;
+      startUpload(uploadId, f.file.name, f.file.size);
+
+      const storagePath = `${user?.id}/course-${Date.now()}_${f.file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+
+      const progressInterval = setInterval(() => {
+        const current = useUploadStore.getState().uploads.find(u => u.id === uploadId);
+        if (current && current.progress < 90) {
+          updateProgress(uploadId, current.progress + Math.random() * 15 + 5);
+        }
+      }, 300);
+
+      const { error: uploadError } = await supabase.storage
+        .from('assignment-files')
+        .upload(storagePath, f.file, { upsert: false });
+
+      clearInterval(progressInterval);
+
+      if (uploadError) {
+        failUpload(uploadId, uploadError.message);
+        setSaving(false);
+        return;
+      }
+
+      completeUpload(uploadId);
+      uploadedNew.push({
+        name: f.file.name.replace(/[^a-zA-Z0-9._-]/g, '_'),
+        size: +(f.file.size / 1024 / 1024).toFixed(2),
+        type: f.file.type,
+        storagePath,
+      });
+    }
+
+    const attachments = [...existingAttachments, ...uploadedNew];
 
     const courseData = {
       code,
       name,
       instructor,
       credits,
-      schedule,
+      schedule: composedSchedule,
       accent,
       user_id: user?.id || null,
+      attachments,
     };
 
     if (editingCourse) {
@@ -610,6 +806,8 @@ const CourseList = () => {
 
     setModalOpen(false);
     setImageFile(null);
+    setAttachFiles([]);
+    setSaving(false);
   };
 
   return (
@@ -674,6 +872,21 @@ const CourseList = () => {
                 <ClipboardList size={15} />
                 {assignments.filter(a => a.courseCode === course.code).length} Assignment{assignments.filter(a => a.courseCode === course.code).length !== 1 ? 's' : ''}
               </AssignLink>
+              {course.attachments?.length > 0 && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem', marginTop: '0.5rem' }}>
+                  {course.attachments.map((att, i) => (
+                    <CardAttachRow
+                      key={i}
+                      href="#"
+                      onClick={e => { e.preventDefault(); handleDownloadCourseAttach(att.storagePath, att.name); }}
+                    >
+                      <Paperclip size={12} style={{ color: '#b35a38', flexShrink: 0 }} />
+                      <CardAttachName>{att.name}</CardAttachName>
+                      <CardAttachSize>{att.size} MB</CardAttachSize>
+                    </CardAttachRow>
+                  ))}
+                </div>
+              )}
             </CardContent>
             <CardFooter>
               {!canManageCourses && (
@@ -696,7 +909,7 @@ const CourseList = () => {
                   <IconBtn onClick={() => handleOpenEditModal(course)} title="Edit Course">
                     <Edit2 size={16} />
                   </IconBtn>
-                  <IconBtn onClick={async () => { setDeletingCourseId(course.id); await deleteCourse(course.id); setDeletingCourseId(null); }} title="Delete Course" disabled={deletingCourseId === course.id} style={{ color: deletingCourseId === course.id ? '#999' : '#b35a38' }}>
+                  <IconBtn onClick={() => setConfirmDeleteId(course.id)} title="Delete Course" disabled={deletingCourseId === course.id} style={{ color: deletingCourseId === course.id ? '#999' : '#b35a38' }}>
                     {deletingCourseId === course.id ? <Loader className="spin" size={16} /> : <Trash2 size={16} />}
                   </IconBtn>
                 </div>
@@ -765,16 +978,43 @@ const CourseList = () => {
                 </InputGroup>
 
                 <InputGroup>
-                  <Label>Schedule</Label>
-                  <Input 
-                    type="text" 
-                    placeholder="e.g. Mon, Wed 10:00 AM" 
-                    value={schedule} 
-                    onChange={e => setSchedule(e.target.value)} 
-                    required 
-                  />
+                  <Label>Time</Label>
+                  <TimeRow>
+                    <TimeInput
+                      type="time"
+                      value={startTime}
+                      onChange={e => setStartTime(e.target.value)}
+                    />
+                    <TimeSeparator>to</TimeSeparator>
+                    <TimeInput
+                      type="time"
+                      value={endTime}
+                      onChange={e => setEndTime(e.target.value)}
+                    />
+                  </TimeRow>
                 </InputGroup>
               </div>
+
+              <InputGroup>
+                <Label>Days</Label>
+                <DayPicker>
+                  {DAYS.map(day => (
+                    <DayChip
+                      key={day}
+                      type="button"
+                      $active={selectedDays.includes(day)}
+                      onClick={() => setSelectedDays(prev => prev.includes(day) ? prev.filter(d => d !== day) : [...prev, day])}
+                    >
+                      {day}
+                    </DayChip>
+                  ))}
+                </DayPicker>
+                {(selectedDays.length > 0 || startTime) && (
+                  <SchedulePreview>
+                    {composeSchedule(selectedDays, startTime, endTime) || 'Select days and time'}
+                  </SchedulePreview>
+                )}
+              </InputGroup>
 
               <InputGroup>
                 <Label>Featured Image</Label>
@@ -819,10 +1059,48 @@ const CourseList = () => {
                 </ColorPalette>
               </InputGroup>
 
+              <InputGroup>
+                <Label><Paperclip size={14} style={{ marginRight: '0.35rem', verticalAlign: 'middle' }} /> Attachments (syllabus, outline, resources)</Label>
+                <AttachUploadArea onClick={() => document.getElementById('course-attach-input')?.click()}>
+                  <Upload size={18} style={{ marginRight: '0.35rem', verticalAlign: 'middle' }} />
+                  <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>Click to upload files</span>
+                  <input
+                    id="course-attach-input"
+                    type="file"
+                    multiple
+                    style={{ display: 'none' }}
+                    accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt,.csv,.zip,.jpg,.jpeg,.png,.gif"
+                    onChange={e => {
+                      const newFiles = Array.from(e.target.files || []).map(f => ({ file: f, id: Date.now() + Math.random() }));
+                      setAttachFiles(prev => [...prev, ...newFiles]);
+                      e.target.value = '';
+                    }}
+                  />
+                </AttachUploadArea>
+                {attachFiles.length > 0 && (
+                  <AttachList>
+                    {attachFiles.map((f, i) => (
+                      <AttachItem key={i}>
+                        <FileText size={14} style={{ color: '#b35a38', flexShrink: 0 }} />
+                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {f.existing?.name || f.file?.name}
+                        </span>
+                        <span style={{ fontSize: '0.7rem', color: '#999', flexShrink: 0 }}>
+                          {f.existing ? `${f.existing.size} MB` : `${(f.file.size / 1024 / 1024).toFixed(2)} MB`}
+                        </span>
+                        <AttachRemove onClick={() => setAttachFiles(prev => prev.filter((_, j) => j !== i))}>
+                          <X size={13} />
+                        </AttachRemove>
+                      </AttachItem>
+                    ))}
+                  </AttachList>
+                )}
+              </InputGroup>
+
               <ModalActions>
                 <SecondaryBtn type="button" onClick={() => setModalOpen(false)}>Cancel</SecondaryBtn>
-                <PrimaryBtn type="submit">
-                  {editingCourse ? 'Save Changes' : 'Create Course'}
+                <PrimaryBtn type="submit" disabled={saving}>
+                  {saving ? <><Loader className="spin" size={18} /> Saving...</> : editingCourse ? 'Save Changes' : 'Create Course'}
                 </PrimaryBtn>
               </ModalActions>
             </form>
@@ -866,6 +1144,36 @@ const CourseList = () => {
           </Modal>
         </Overlay>
       )}
+      {confirmDeleteId && (() => {
+        const course = courses.find(c => c.id === confirmDeleteId);
+        return (
+          <Overlay onClick={() => setConfirmDeleteId(null)}>
+            <Modal onClick={e => e.stopPropagation()}>
+              <ModalHeader>
+                <ModalTitle>Delete Course?</ModalTitle>
+                <CloseBtn onClick={() => setConfirmDeleteId(null)}><X size={20} /></CloseBtn>
+              </ModalHeader>
+              <p style={{ fontSize: '0.9rem', color: '#555', marginBottom: '1.25rem', lineHeight: 1.5 }}>
+                This will permanently delete <strong>{course?.name}</strong> ({course?.code}) and all its attachments. This action cannot be undone.
+              </p>
+              <ModalActions>
+                <SecondaryBtn onClick={() => setConfirmDeleteId(null)}>Cancel</SecondaryBtn>
+                <PrimaryBtn
+                  onClick={async () => {
+                    setDeletingCourseId(confirmDeleteId);
+                    await deleteCourse(confirmDeleteId);
+                    setDeletingCourseId(null);
+                    setConfirmDeleteId(null);
+                  }}
+                  style={{ background: '#dc2626' }}
+                >
+                  {deletingCourseId === confirmDeleteId ? <><Loader className="spin" size={16} /> Deleting...</> : 'Delete'}
+                </PrimaryBtn>
+              </ModalActions>
+            </Modal>
+          </Overlay>
+        );
+      })()}
     </Container>
   );
 };

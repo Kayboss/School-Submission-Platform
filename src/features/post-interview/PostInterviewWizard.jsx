@@ -431,7 +431,7 @@ const STUDENT_SECTIONS = {
     'The system responded quickly.',
   ],
   B: [
-    'The system reduced my dependence on flash drives.',
+    'The system reduced my dependence on pen drives.',
     'The system improved assignment submission.',
     'The system provides secure storage for assignments.',
     'The system improved my organization of academic files.',
@@ -439,7 +439,7 @@ const STUDENT_SECTIONS = {
   ],
   C: [
     'The system solved the storage problems I previously experienced.',
-    'The system is more convenient than flash drives.',
+    'The system is more convenient than pen drives.',
     'The system should replace existing submission methods.',
   ],
 };

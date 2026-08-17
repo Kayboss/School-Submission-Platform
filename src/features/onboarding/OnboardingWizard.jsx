@@ -401,7 +401,7 @@ const LIKERT_STATEMENTS = [
   'I frequently worry about losing my files.',
   'Managing multiple assignment files is difficult.',
   'Retrieving previously submitted assignments is difficult.',
-  'Buying flash drives increases my academic expenses.',
+  'Buying pen drives increases my academic expenses.',
   'CD submission is no longer practical.',
   'There is no centralized repository for students\' work.',
   'Existing submission methods are inefficient.',
@@ -637,7 +637,7 @@ const OnboardingWizard = () => {
             </QuestionGroup>
 
             <QuestionGroup>
-              <QuestionLabel>8. Have you ever experienced a corrupted flash drive?</QuestionLabel>
+              <QuestionLabel>8. Have you ever experienced a corrupted pen drive?</QuestionLabel>
               <OptionsGrid>
                 {['Yes', 'No'].map(opt => (
                   <OptionBtn key={opt} $selected={answers.corruptedFlash === opt} onClick={() => set('corruptedFlash', opt)}>

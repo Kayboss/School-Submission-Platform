@@ -4,22 +4,37 @@ import { supabase } from '../lib/supabase';
 import { fetchAcceptedCourses, acceptCourse as dbAcceptCourse, removeAcceptedCourse as dbRemoveAcceptedCourse } from '../lib/supabaseService';
 import { logActivity, startSession, endSession, ACTIONS } from '../lib/activityService';
 
+// Maps raw Supabase errors to safe, user-friendly messages
+// (raw DB error text can leak schema/implementation details).
+function friendlyAuthError(message = '') {
+  const m = message.toLowerCase();
+  if (m.includes('invalid login credentials')) return 'Incorrect email or password.';
+  if (m.includes('user already registered')) return 'An account with this email already exists.';
+  if (m.includes('email not confirmed') || m.includes('email_not_confirmed')) return 'Please confirm your email before signing in.';
+  if (m.includes('password should be at least')) return message;
+  if (m.includes('rate limit') || m.includes('too many requests')) return 'Too many attempts. Please wait a moment and try again.';
+  if (m.includes('network') || m.includes('fetch')) return 'Network error. Please check your connection and try again.';
+  return 'Something went wrong. Please try again.';
+}
+
 async function getProfile(userId) {
-  try {
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', userId)
-      .maybeSingle();
-    if (error) {
-      console.error('Profile fetch error:', error.message);
-      return null;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .maybeSingle();
+      if (error) {
+        if (attempt < 2) await new Promise(r => setTimeout(r, 500 * (attempt + 1)));
+        continue;
+      }
+      return data;
+    } catch (e) {
+      if (attempt < 2) await new Promise(r => setTimeout(r, 500 * (attempt + 1)));
     }
-    return data;
-  } catch (e) {
-    console.error('Profile fetch network error:', e.message);
-    return null;
   }
+  return null;
 }
 
 export const useAuthStore = create(
@@ -52,6 +67,7 @@ export const useAuthStore = create(
             institution: profile?.institution || meta.institution || '',
             student_id: profile?.student_id || null,
             onboarding_completed: profile?.onboarding_completed ?? false,
+            post_interview_completed: profile?.post_interview_completed ?? false,
           };
 
           set({ user, isAuthenticated: true, role: user.role });
@@ -83,6 +99,7 @@ export const useAuthStore = create(
                 institution: profile.institution || meta.institution || '',
                 student_id: profile.student_id || null,
                 onboarding_completed: profile.onboarding_completed ?? false,
+                post_interview_completed: profile.post_interview_completed ?? false,
               };
 
               set({ user, isAuthenticated: true, role: user.role });
@@ -121,7 +138,7 @@ export const useAuthStore = create(
 
         if (error) {
           set({ loading: false });
-          return { error: error.message };
+          return { error: friendlyAuthError(error.message) };
         }
 
           if (data.user) {
@@ -148,7 +165,8 @@ export const useAuthStore = create(
                 id: data.user.id, name, email, role,
                 institution: institution || 'Tamale Technical University',
                 student_id: studentId || null,
-                onboarding_completed: !needsOnboarding
+                onboarding_completed: !needsOnboarding,
+                post_interview_completed: false,
               },
               isAuthenticated: true,
               role,
@@ -174,7 +192,7 @@ export const useAuthStore = create(
 
         if (error) {
           set({ loading: false });
-          return { error: error.message };
+          return { error: friendlyAuthError(error.message) };
         }
 
         if (data.user) {
@@ -189,6 +207,7 @@ export const useAuthStore = create(
             institution: profile?.institution || meta.institution || '',
             student_id: profile?.student_id || null,
             onboarding_completed: profile?.onboarding_completed ?? false,
+            post_interview_completed: profile?.post_interview_completed ?? false,
           };
 
           set({ user, isAuthenticated: true, role: user.role, loading: false });
@@ -246,7 +265,7 @@ export const useAuthStore = create(
     {
       name: 'tatu-auth-storage',
       partialize: (state) => ({
-        user: state.user,
+        user: state.user ? { id: state.user.id, name: state.user.name, role: state.user.role } : null,
         isAuthenticated: state.isAuthenticated,
         acceptedCourses: state.acceptedCourses,
         viewedPages: state.viewedPages,

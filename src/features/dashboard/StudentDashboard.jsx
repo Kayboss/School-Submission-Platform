@@ -225,6 +225,7 @@ const StudentDashboard = () => {
   const viewedPages = useAuthStore(state => state.viewedPages);
   const assignments = useAssignmentStore(state => state.assignments);
   const submissions = useSubmissionStore(state => state.submissions);
+  const courses = useCourseStore(state => state.courses);
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('todo');
   const [notifOpen, setNotifOpen] = useState(false);
@@ -247,6 +248,11 @@ const StudentDashboard = () => {
 
   const studentId = user?.studentId || user?.id;
 
+  const enrolledCourseCodes = useMemo(() =>
+    courses.filter(c => acceptedCourses.includes(c.id)).map(c => c.code),
+    [courses, acceptedCourses]
+  );
+
   const studentSubmissions = useMemo(() =>
     submissions.filter(s => s.studentId === studentId),
     [submissions, studentId]
@@ -257,14 +263,19 @@ const StudentDashboard = () => {
     [studentSubmissions]
   );
 
+  const enrolledAssignments = useMemo(() =>
+    assignments.filter(a => enrolledCourseCodes.includes(a.courseCode)),
+    [assignments, enrolledCourseCodes]
+  );
+
   const todoAssignments = useMemo(() =>
-    assignments.filter(a => !submittedIds.has(a.id) && new Date(a.dueDate) > new Date()),
-    [assignments, submittedIds]
+    enrolledAssignments.filter(a => !submittedIds.has(a.id) && new Date(a.dueDate) > new Date()),
+    [enrolledAssignments, submittedIds]
   );
 
   const overdueAssignments = useMemo(() =>
-    assignments.filter(a => !submittedIds.has(a.id) && new Date(a.dueDate) <= new Date()),
-    [assignments, submittedIds]
+    enrolledAssignments.filter(a => !submittedIds.has(a.id) && new Date(a.dueDate) <= new Date()),
+    [enrolledAssignments, submittedIds]
   );
 
   const submittedAssignments = useMemo(() =>
@@ -387,11 +398,6 @@ const StudentDashboard = () => {
   return (
     <>
       <TopBar>
-        {acceptedCourses.length > 0 && viewedPages.includes('/assignments') && viewedPages.includes('/submissions') && !user?.post_interview_completed && (
-          <RateUsButton onClick={() => navigate('/post-interview')}>
-            <Star size={16} strokeWidth={2.5} /> <span>Rate Us</span>
-          </RateUsButton>
-        )}
         <NotifWrapper ref={notifRef}>
           <NotifButton onClick={() => setNotifOpen(v => !v)}>
             <Bell size={20} strokeWidth={2.5} />
@@ -430,7 +436,7 @@ const StudentDashboard = () => {
       <StatGrid>
         <StatCard>
           <StatLabel>Total Assignments</StatLabel>
-          <StatValue className="data-tabular">{assignments.length}</StatValue>
+          <StatValue className="data-tabular">{enrolledAssignments.length}</StatValue>
         </StatCard>
         <StatCard color="#daa520">
           <StatLabel>Submitted</StatLabel>

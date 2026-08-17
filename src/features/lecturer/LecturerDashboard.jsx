@@ -4,14 +4,17 @@ import { useAuthStore } from '../../store/authStore';
 import { useSubmissionStore } from '../../store/submissionStore';
 import { useAssignmentStore } from '../../store/assignmentStore';
 import { useCourseStore } from '../../store/courseStore';
-import { fetchStudents } from '../../lib/supabaseService';
+import { fetchStudents, fetchCourseEnrollments } from '../../lib/supabaseService';
 import {
   Users, BookOpen, FileText, CheckCircle, Clock, AlertCircle,
-  ArrowRight, TrendingUp, Award, BarChart2, DownloadCloud, Loader, Star
+  ArrowRight, TrendingUp, Award, BarChart2, DownloadCloud, Loader, Star, X, Mail
 } from 'lucide-react';
 import styled from 'styled-components';
 import { exportGradesCsv } from '../../utils/exportCsv';
 import { useToastStore } from '../../store/toastStore';
+import {
+  Overlay, Modal, ModalTitle, ModalSub, ModalActions, PrimaryBtn
+} from './lecturerStyles';
 
 const Container = styled.div` padding: 1rem; `;
 
@@ -162,6 +165,51 @@ const QuickInfo = styled.div` flex: 1; `;
 const QuickTitle = styled.h4` font-size: 1rem; font-weight: 800; color: ${({ theme }) => theme.colors.text.main}; `;
 const QuickMeta = styled.p` font-size: 0.8125rem; color: #55433c; font-weight: 600; `;
 
+const CourseStudentsBtn = styled.button`
+  display: inline-flex; align-items: center; gap: 0.4rem;
+  padding: 0.35rem 0.75rem; border: none; border-radius: ${({ theme }) => theme.borderRadius.full};
+  background: ${({ theme }) => theme.colors.primary}12; color: ${({ theme }) => theme.colors.primary};
+  font-size: 0.72rem; font-weight: 800; cursor: pointer; white-space: nowrap;
+  &:hover { background: ${({ theme }) => theme.colors.primary}22; transform: translateY(-1px); }
+`;
+
+const StudentList = styled.div`
+  max-height: 400px; overflow-y: auto; margin-bottom: 1.5rem;
+  border: 1px solid ${({ theme }) => theme.colors.border}20; border-radius: ${({ theme }) => theme.borderRadius.medium};
+`;
+
+const StudentItem = styled.div`
+  display: flex; align-items: center; gap: 1rem;
+  padding: 0.875rem 1.25rem; border-bottom: 1px solid ${({ theme }) => theme.colors.background.alt};
+  &:last-child { border-bottom: none; }
+`;
+
+const StudentItemAvatar = styled.div`
+  width: 40px; height: 40px; border-radius: 12px; flex-shrink: 0;
+  background: ${({ theme }) => theme.colors.primary}15; color: ${({ theme }) => theme.colors.primary};
+  display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 0.95rem;
+`;
+
+const StudentItemInfo = styled.div` flex: 1; min-width: 0; `;
+const StudentItemName = styled.p` font-size: 0.9rem; font-weight: 800; color: ${({ theme }) => theme.colors.text.main}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; `;
+const StudentItemMeta = styled.p` font-size: 0.75rem; color: #55433c; font-weight: 600; display: flex; align-items: center; gap: 0.3rem; margin-top: 2px; `;
+
+const StudentChip = styled.span`
+  display: inline-flex; align-items: center; padding: 0.25rem 0.6rem; border-radius: 6px;
+  font-size: 0.7rem; font-weight: 800; white-space: nowrap;
+  background: ${({ $color }) => $color}15; color: ${({ $color }) => $color};
+`;
+
+const ModalClose = styled.button`
+  position: absolute; top: 1.25rem; right: 1.25rem;
+  width: 34px; height: 34px; border-radius: 10px; border: none;
+  background: ${({ theme }) => theme.colors.background.alt}; color: ${({ theme }) => theme.colors.text.muted};
+  display: flex; align-items: center; justify-content: center; cursor: pointer;
+  &:hover { color: ${({ theme }) => theme.colors.primary}; }
+`;
+
+const EmptyModal = styled.p` text-align: center; padding: 2.5rem 1rem; color: #55433c; font-weight: 600; `;
+
 const LecturerDashboard = () => {
   const user = useAuthStore(s => s.user);
   const viewedPages = useAuthStore(s => s.viewedPages);
@@ -170,11 +218,23 @@ const LecturerDashboard = () => {
   const courses = useCourseStore(s => s.courses);
   const addToast = useToastStore(s => s.addToast);
   const navigate = useNavigate();
-  const [studentCount, setStudentCount] = useState(0);
+  const [students, setStudents] = useState([]);
+  const [enrollmentByCourse, setEnrollmentByCourse] = useState({});
+  const [courseStudents, setCourseStudents] = useState(null);
 
   useEffect(() => {
-    fetchStudents().then(students => setStudentCount(students.length));
-  }, []);
+    fetchStudents(user).then(setStudents);
+    fetchCourseEnrollments().then(rows => {
+      const map = {};
+      (rows || []).forEach(r => { map[r.course_id] = Number(r.enrolled) || 0; });
+      setEnrollmentByCourse(map);
+    });
+  }, [user]);
+
+  const courseStudentList = useMemo(() => {
+    if (!courseStudents) return [];
+    return students.filter(s => (s.courses || []).includes(courseStudents.code));
+  }, [students, courseStudents]);
 
   const gradeDist = useMemo(() => {
     const graded = submissions.filter(s => s.score != null);
@@ -194,8 +254,10 @@ const LecturerDashboard = () => {
   const courseStats = useMemo(() => {
     return courses.map(c => {
       const courseSubs = submissions.filter(s => s.courseCode === c.code);
+      const enrolled = enrollmentByCourse[c.id] || 0;
       return {
         ...c,
+        enrolled,
         total: courseSubs.length,
         graded: courseSubs.filter(s => s.status === 'Graded').length,
         pending: courseSubs.filter(s => s.status === 'Pending').length,
@@ -204,7 +266,7 @@ const LecturerDashboard = () => {
           : 0
       };
     });
-  }, [courses, submissions]);
+  }, [courses, submissions, enrollmentByCourse]);
 
   const [isExporting, setIsExporting] = useState(false);
 
@@ -216,14 +278,14 @@ const LecturerDashboard = () => {
   };
 
   const stats = useMemo(() => ({
-    students: studentCount,
+    students: students.length,
     courses: courses.length,
     assignments: assignments.length,
     total: submissions.length,
     pending: submissions.filter(s => s.status === 'Pending').length,
     graded: submissions.filter(s => s.status === 'Graded').length,
     late: submissions.filter(s => s.status === 'Late').length,
-  }), [submissions, courses, assignments]);
+  }), [submissions, courses, assignments, students]);
 
   const recentSubs = useMemo(() =>
     [...submissions].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)).slice(0, 5),
@@ -237,11 +299,6 @@ const LecturerDashboard = () => {
           <Greeting>Welcome back, {user?.name?.split(' ')[0]}!</Greeting>
           <SubGreeting>Here's an overview of your academic system.</SubGreeting>
         </div>
-        {!user?.post_interview_completed && courses.length > 0 && viewedPages.includes('/lecturer/assignments') && viewedPages.includes('/lecturer/submissions') && (
-          <RateUsBtn onClick={() => navigate('/post-interview')}>
-            <Star size={16} strokeWidth={2.5} /> Rate Us
-          </RateUsBtn>
-        )}
       </Header>
 
       <StatsGrid>
@@ -326,17 +383,30 @@ const LecturerDashboard = () => {
         <ChartTitle><BookOpen size={20} color="#daa520" style={{ verticalAlign: 'middle', marginRight: '0.5rem' }} />Course Performance</ChartTitle>
         {courseStats.map(c => (
           <div key={c.id} style={{ marginBottom: '1rem' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.35rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem', gap: '0.5rem' }}>
               <span style={{ fontWeight: 800, fontSize: '0.9rem' }}>{c.code}</span>
-              <span style={{ fontWeight: 700, fontSize: '0.85rem', color: '#55433c' }}>
-                Avg: <span style={{ color: c.avgScore >= 70 ? '#4a7c59' : c.avgScore >= 50 ? '#daa520' : '#b35a38' }}>{c.avgScore}</span>% &middot; {c.graded}/{c.total} graded
+              <span style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <span style={{ fontWeight: 700, fontSize: '0.85rem', color: '#55433c' }}>
+                  <span style={{ color: '#b35a38' }}>{c.enrolled}</span> enrolled &middot; {c.graded} graded
+                </span>
+                <CourseStudentsBtn onClick={() => setCourseStudents(c)}>
+                  <Users size={13} /> View Students
+                </CourseStudentsBtn>
               </span>
             </div>
             <BarTrack style={{ height: '12px' }}>
-              <BarFill $color="#4a7c59" $pct={c.total > 0 ? (c.graded / c.total) * 100 : 0} />
+              <BarFill $color="#4a7c59" $pct={c.enrolled > 0 ? (c.graded / c.enrolled) * 100 : 0} />
             </BarTrack>
+            {c.enrolled > 0 && c.pending > 0 && (
+              <div style={{ marginTop: '0.3rem', fontSize: '0.75rem', fontWeight: 600, color: '#55433c' }}>
+                {c.pending} still awaiting grading
+              </div>
+            )}
           </div>
         ))}
+        {courseStats.length === 0 && (
+          <p style={{ textAlign: 'center', color: '#55433c', fontWeight: 600, padding: '1rem' }}>No courses assigned yet.</p>
+        )}
       </ChartCard>
 
       <SectionRow>
@@ -400,6 +470,39 @@ const LecturerDashboard = () => {
           </Section>
         </div>
       </SectionRow>
+
+      {courseStudents && (
+        <Overlay onClick={() => setCourseStudents(null)}>
+          <Modal onClick={e => e.stopPropagation()} style={{ width: 'min(620px, 92vw)', position: 'relative' }}>
+            <ModalClose onClick={() => setCourseStudents(null)}><X size={16} /></ModalClose>
+            <ModalTitle>{courseStudents.code} — Enrolled Students</ModalTitle>
+            <ModalSub>{courseStudents.name} &middot; {courseStudentList.length} student{courseStudentList.length !== 1 ? 's' : ''} enrolled</ModalSub>
+            {courseStudentList.length === 0 ? (
+              <EmptyModal>No students have enrolled in this course yet.</EmptyModal>
+            ) : (
+              <StudentList>
+                {courseStudentList.map(s => (
+                  <StudentItem key={s.userId || s.id}>
+                    <StudentItemAvatar>{s.name?.charAt(0)?.toUpperCase() || '?'}</StudentItemAvatar>
+                    <StudentItemInfo>
+                      <StudentItemName>{s.name}</StudentItemName>
+                      <StudentItemMeta>
+                        <Mail size={11} /> {s.email} {s.id && s.id !== s.userId && ` · ID: ${s.id}`}
+                      </StudentItemMeta>
+                    </StudentItemInfo>
+                    {s.submitted > 0 && <StudentChip $color="#4a7c59">{s.submitted} graded</StudentChip>}
+                    {s.pending > 0 && <StudentChip $color="#daa520">{s.pending} pending</StudentChip>}
+                    {s.overdue > 0 && <StudentChip $color="#b35a38">{s.overdue} overdue</StudentChip>}
+                  </StudentItem>
+                ))}
+              </StudentList>
+            )}
+            <ModalActions>
+              <PrimaryBtn onClick={() => setCourseStudents(null)}>Done</PrimaryBtn>
+            </ModalActions>
+          </Modal>
+        </Overlay>
+      )}
     </Container>
   );
 };

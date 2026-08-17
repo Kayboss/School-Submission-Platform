@@ -8,6 +8,7 @@ import { useAssignmentStore } from './store/assignmentStore';
 import { useSubmissionStore } from './store/submissionStore';
 import { useRubricStore } from './store/rubricStore';
 import { useErrorLogStore } from './store/errorLogStore';
+import ErrorBoundary from './components/common/ErrorBoundary';
 import { HelmetProvider } from 'react-helmet-async';
 import styled from 'styled-components';
 
@@ -38,6 +39,8 @@ import AdminDashboard from './features/admin/AdminDashboard';
 import OnboardingWizard from './features/onboarding/OnboardingWizard';
 import PostInterviewWizard from './features/post-interview/PostInterviewWizard';
 import { ToastContainer } from './components/ui/ToastContainer';
+import UploadProgress from './components/common/UploadProgress';
+import PostInterviewModal from './components/common/PostInterviewModal';
 
 
 // Loads data from Supabase when authenticated
@@ -92,6 +95,18 @@ const OnboardingGuard = ({ children }) => {
 
   if (needsOnboarding && location.pathname !== '/onboarding') {
     return <Navigate to="/onboarding" replace />;
+  }
+
+  return children;
+};
+
+// Restricts a route to specific roles (e.g. admin-only dashboards)
+const RoleGuard = ({ allowed, children }) => {
+  const user = useAuthStore(s => s.user);
+  const location = useLocation();
+
+  if (!user || !allowed.includes(user.role)) {
+    return <Navigate to="/" state={{ from: location }} replace />;
   }
 
   return children;
@@ -191,6 +206,7 @@ const App = () => {
   const [init, setInit] = useState(false);
 
   useEffect(() => {
+    useErrorLogStore.getState().installConsoleCapture();
     initialize().finally(() => setInit(true));
   }, [initialize]);
 
@@ -214,6 +230,9 @@ const App = () => {
           <PageTracker />
           <ErrorCatcher />
           <ToastContainer />
+          <UploadProgress />
+          <PostInterviewModal />
+          <ErrorBoundary>
           <Routes>
             {/* Public Routes */}
             <Route path="/login" element={<InstitutionalLogin />} />
@@ -239,14 +258,14 @@ const App = () => {
               <Route path="assignments" element={<StudentAssignments />} />
               <Route path="settings" element={<Settings />} />
               <Route path="history" element={<SubmissionHistory />} />
-              <Route path="lecturer" element={<LecturerLayout />}>
+              <Route path="lecturer" element={<RoleGuard allowed={['lecturer', 'admin']}><LecturerLayout /></RoleGuard>}>
                 <Route index element={<Navigate to="submissions" replace />} />
                 <Route path="submissions" element={<LecturerSubmissions />} />
                 <Route path="assignments" element={<LecturerAssignments />} />
                 <Route path="students" element={<LecturerStudents />} />
               </Route>
-              <Route path="admin" element={<QuestionnaireDashboard />} />
-              <Route path="analytics" element={<AdminDashboard />} />
+              <Route path="admin" element={<RoleGuard allowed={['admin']}><QuestionnaireDashboard /></RoleGuard>} />
+              <Route path="analytics" element={<RoleGuard allowed={['admin']}><AdminDashboard /></RoleGuard>} />
             </Route>
 
             {/* Onboarding Route */}
@@ -272,6 +291,7 @@ const App = () => {
             {/* Fallback */}
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
+          </ErrorBoundary>
         </BrowserRouter>
       </ThemeContextProvider>
     </HelmetProvider>

@@ -5,11 +5,13 @@ import { useAuthStore } from '../../store/authStore';
 import { GraduationCap, ShieldCheck, User, Lock, Mail, ArrowRight, Building, Eye, EyeOff, Loader, Hash } from 'lucide-react';
 
 const Container = styled.div`
-  height: 100vh;
+  min-height: 100vh;
   display: flex;
   background: ${({ theme }) => theme.colors.background.main};
   position: relative;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding: 1.25rem 1rem;
 
   &::before {
     content: '';
@@ -52,7 +54,7 @@ const Content = styled.div`
   margin: auto;
   background: rgba(255, 255, 255, 0.8);
   backdrop-filter: blur(20px);
-  padding: 2.5rem 3.5rem;
+  padding: 2rem 3.5rem;
   border-radius: ${({ theme }) => theme.borderRadius.medium};
   box-shadow: ${({ theme }) => theme.shadows.premium};
   border: 1px solid rgba(179, 90, 56, 0.1);
@@ -65,19 +67,19 @@ const Content = styled.div`
 
 const Header = styled.div`
   text-align: center;
-  margin-bottom: 2rem;
+  margin-bottom: 1.5rem;
 `;
 
 const Logo = styled.div`
-  width: 64px;
-  height: 64px;
+  width: 56px;
+  height: 56px;
   background: ${({ theme }) => theme.colors.primary};
   color: white;
-  border-radius: 16px;
+  border-radius: 14px;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin: 0 auto 1.25rem;
+  margin: 0 auto 1rem;
   box-shadow: 0 12px 24px rgba(179, 90, 56, 0.2);
 `;
 
@@ -98,7 +100,7 @@ const Subtitle = styled.p`
 const Form = styled.form`
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: 0.8rem;
 `;
 
 const InputGroup = styled.div`
@@ -116,7 +118,7 @@ const InputIcon = styled.div`
 
 const Input = styled.input`
   width: 100%;
-  padding: 0.85rem 1rem 0.85rem 3.25rem;
+  padding: 0.75rem 1rem 0.75rem 3.25rem;
   border: 1.5px solid ${({ theme }) => theme.colors.border};
   border-radius: ${({ theme }) => theme.borderRadius.medium};
   font-size: 0.9rem;
@@ -186,7 +188,7 @@ const SubmitButton = styled.button`
   align-items: center;
   justify-content: center;
   gap: 0.75rem;
-  margin-top: 0.75rem;
+  margin-top: 0.5rem;
   box-shadow: 0 8px 20px ${({ theme }) => theme.colors.primary}40;
 
   &:hover {
@@ -204,7 +206,7 @@ const SubmitButton = styled.button`
 
 const FooterText = styled.p`
   text-align: center;
-  margin-top: 1.5rem;
+  margin-top: 1.1rem;
   font-size: 0.85rem;
   color: ${({ theme }) => theme.colors.text.muted};
 `;

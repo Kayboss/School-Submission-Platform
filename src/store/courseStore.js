@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { fetchCourses, addCourse, updateCourse, deleteCourse } from '../lib/supabaseService';
 import { supabase } from '../lib/supabase';
 
-export const useCourseStore = create((set) => ({
+export const useCourseStore = create((set, get) => ({
   courses: [],
   loading: false,
 
@@ -14,7 +14,11 @@ export const useCourseStore = create((set) => ({
 
   addCourse: async (course) => {
     const data = await addCourse(course);
-    if (data) set((state) => ({ courses: [...state.courses, data] }));
+    if (data) {
+      set((state) => ({ courses: [...state.courses, data] }));
+      return data;
+    }
+    return null;
   },
 
   updateCourse: async (id, updates) => {
@@ -60,6 +64,20 @@ export const useCourseStore = create((set) => ({
   },
 
   deleteCourse: async (id) => {
+    const course = get().courses.find(c => c.id === id);
+
+    if (course?.image) {
+      const imgPath = course.image.split('/').pop();
+      await supabase.storage.from('course-images').remove([imgPath]);
+    }
+
+    if (course?.attachments?.length > 0) {
+      const paths = course.attachments.map(a => a.storagePath).filter(Boolean);
+      if (paths.length > 0) {
+        await supabase.storage.from('assignment-files').remove(paths);
+      }
+    }
+
     await deleteCourse(id);
     set((state) => ({ courses: state.courses.filter((c) => c.id !== id) }));
   }

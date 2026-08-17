@@ -25,9 +25,7 @@ export async function logActivity(action, entityType = null, entityId = null, me
     entity_id: entityId,
     metadata: { ...metadata, ...device, ...location },
     user_agent: ua
-  }).then(({ error }) => {
-    if (error) console.error('Activity log error:', error);
-  });
+  }).then(() => {}).catch(() => {});
 }
 
 // Track login session
@@ -81,5 +79,6 @@ export const ACTIONS = {
   EXPORT_CSV: 'export_csv',
   UPDATE_SETTINGS: 'update_settings',
   VIEW_RUBRIC: 'view_rubric',
-  RESUBMIT: 'resubmit'
+  RESUBMIT: 'resubmit',
+  CHANGE_ROLE: 'change_role'
 };

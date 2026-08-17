@@ -26,7 +26,7 @@ const LIKERT_STATEMENTS = [
   'I frequently worry about losing my files.',
   'Managing multiple assignment files is difficult.',
   'Retrieving previously submitted assignments is difficult.',
-  'Buying flash drives increases my academic expenses.',
+  'Buying pen drives increases my academic expenses.',
   'CD submission is no longer practical.',
   'There is no centralized repository for students\' work.',
   'Existing submission methods are inefficient.',
@@ -253,7 +253,7 @@ const QuestionnaireDashboard = () => {
   const yesNoData = useMemo(() => {
     const fields = [
       { key: 'lostAssignment', label: 'Lost an assignment', icon: 'lost' },
-      { key: 'corruptedFlash', label: 'Corrupted flash drive', icon: 'corrupt' },
+      { key: 'corruptedFlash', label: 'Corrupted pen drive', icon: 'corrupt' },
       { key: 'unableRetrieve', label: 'Unable to retrieve old work', icon: 'retrieve' },
     ];
     return fields.map(f => {
@@ -384,8 +384,8 @@ const QuestionnaireDashboard = () => {
 
   const STUDENT_POST_LIKERT = {
     A: ['The system was easy to learn.', 'The interface was user-friendly.', 'Uploading files was easy.', 'Retrieving files was easy.', 'Navigation between pages was simple.', 'The system responded quickly.'],
-    B: ['The system reduced my dependence on flash drives.', 'The system improved assignment submission.', 'My files are easier to locate.', 'The system provides secure storage for assignments.', 'The system improved my organization of academic files.', 'I would continue using this system.'],
-    C: ['The system solved the storage problems I previously experienced.', 'The system made retrieval of assignments easier.', 'The system is more convenient than flash drives.', 'The system should replace existing submission methods.', 'Overall, the system improved the management of academic files.'],
+    B: ['The system reduced my dependence on pen drives.', 'The system improved assignment submission.', 'My files are easier to locate.', 'The system provides secure storage for assignments.', 'The system improved my organization of academic files.', 'I would continue using this system.'],
+    C: ['The system solved the storage problems I previously experienced.', 'The system made retrieval of assignments easier.', 'The system is more convenient than pen drives.', 'The system should replace existing submission methods.', 'Overall, the system improved the management of academic files.'],
   };
 
   const LECTURER_POST_LIKERT = [
