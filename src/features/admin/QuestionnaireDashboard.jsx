@@ -701,7 +701,7 @@ const QuestionnaireDashboard = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {storageData.sort((a, b) => b.value - a.value).map(s => (
+                  {[...storageData].sort((a, b) => b.value - a.value).map(s => (
                     <Tr key={s.name}>
                       <Td style={{ fontWeight: 800 }}>{s.name}</Td>
                       <Td>{s.value}</Td>
@@ -1007,7 +1007,7 @@ const QuestionnaireDashboard = () => {
               <ActionBtn $color="#b35a38" onClick={() => {
                 const data = responses.map(r => {
                   const p = profileMap[r.user_id];
-                  return { student_name: p?.name || '', student_email: p?.email || '', section: r.section, question_key: r.question_key, answer: r.answer, submitted: r.created_at };
+                  return { name: p?.name || '', email: p?.email || '', role: p?.role || '', section: r.section, question_key: r.question_key, answer: r.answer, submitted: r.created_at };
                 });
                 exportQuestionnaireData(data, 'questionnaire_raw_responses.csv');
               }} style={{ marginTop: '0.75rem' }}>
@@ -1022,7 +1022,7 @@ const QuestionnaireDashboard = () => {
                 const data = pivoted.map(r => {
                   const p = profileMap[r.user_id];
                   const likertFields = Object.fromEntries(LIKERT_STATEMENTS.map((_, i) => [`likert_${i + 1}`, r[`likert_${i}`] || '']));
-                  return { student_name: p?.name || '', student_email: p?.email || '', gender: r.gender || '', age: r.age || '', level: r.level || '', submission_frequency: r.submissionFrequency || '', storage_method: r.storageMethod || '', submission_method: r.submissionMethod || '', lost_assignment: r.lostAssignment || '', corrupted_flash: r.corruptedFlash || '', unable_retrieve: r.unableRetrieve || '', ...likertFields, submitted: r.created_at };
+                  return { name: p?.name || '', email: p?.email || '', role: p?.role || '', gender: r.gender || '', age: r.age || '', level: r.level || '', submission_frequency: r.submissionFrequency || '', storage_method: r.storageMethod || '', submission_method: r.submissionMethod || '', lost_assignment: r.lostAssignment || '', corrupted_flash: r.corruptedFlash || '', unable_retrieve: r.unableRetrieve || '', ...likertFields, submitted: r.created_at };
                 });
                 exportQuestionnaireData(data, 'questionnaire_pivoted.csv');
               }} style={{ marginTop: '0.75rem' }}>
@@ -1066,6 +1066,93 @@ const QuestionnaireDashboard = () => {
               <StatValue>{crossTabData.length}</StatValue>
               <ActionBtn $color="#1e40af" onClick={() => exportQuestionnaireData(crossTabData, `questionnaire_crosstab_storage_by_${crossDemo}.csv`)} style={{ marginTop: '0.75rem' }}>
                 <Download size={14} /> Export Cross-Tab
+              </ActionBtn>
+            </StatCard>
+          </StatsGrid>
+
+          <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: '#1c1c19', margin: '2rem 0 1rem', letterSpacing: '-0.3px' }}>
+            Post-Interview Data
+          </h3>
+
+          <StatsGrid style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}>
+            <StatCard $accent="#b35a38">
+              <StatLabel>Raw Post-Interview</StatLabel>
+              <StatValue>{postInterviewResponses.length}</StatValue>
+              <ActionBtn $color="#b35a38" onClick={() => {
+                const data = postInterviewResponses.map(r => {
+                  const p = profileMap[r.user_id];
+                  return { name: p?.name || '', email: p?.email || '', role: r.role, section: r.section, question_key: r.question_key, answer: r.answer, submitted: r.created_at };
+                });
+                exportQuestionnaireData(data, 'post_interview_raw_responses.csv');
+              }} style={{ marginTop: '0.75rem' }}>
+                <Download size={14} /> Export Raw Data
+              </ActionBtn>
+            </StatCard>
+
+            <StatCard $accent="#daa520">
+              <StatLabel>Student Responses</StatLabel>
+              <StatValue>{postStudentResponses.length}</StatValue>
+              <ActionBtn $color="#daa520" onClick={() => {
+                const data = postStudentResponses.map(r => {
+                  const p = profileMap[r.user_id];
+                  const saFields = Object.fromEntries(STUDENT_POST_LIKERT.A.map((_, i) => [`sa_${i + 1}`, r[`sa_${i}`] || '']));
+                  const sbFields = Object.fromEntries(STUDENT_POST_LIKERT.B.map((_, i) => [`sb_${i + 1}`, r[`sb_${i}`] || '']));
+                  const scFields = Object.fromEntries(STUDENT_POST_LIKERT.C.map((_, i) => [`sc_${i + 1}`, r[`sc_${i}`] || '']));
+                  return { name: p?.name || '', email: p?.email || '', ...saFields, ...sbFields, ...scFields, satisfaction: r.satisfaction || '', recommend: r.recommend || '', liked_most: r.liked_most || '', improvements: r.improvements || '', submitted: r.created_at };
+                });
+                exportQuestionnaireData(data, 'post_interview_student_responses.csv');
+              }} style={{ marginTop: '0.75rem' }}>
+                <Download size={14} /> Export Student Data
+              </ActionBtn>
+            </StatCard>
+
+            <StatCard $accent="#4a7c59">
+              <StatLabel>Lecturer Responses</StatLabel>
+              <StatValue>{postLecturerResponses.length}</StatValue>
+              <ActionBtn $color="#4a7c59" onClick={() => {
+                const data = postLecturerResponses.map(r => {
+                  const p = profileMap[r.user_id];
+                  const sbFields = Object.fromEntries(LECTURER_POST_LIKERT.map((_, i) => [`sb_${i + 1}`, r[`sb_${i}`] || '']));
+                  return { name: p?.name || '', email: p?.email || '', gender: r.gender || '', teaching_experience: r.teaching_experience || '', ...sbFields, strengths: r.strengths || '', improvements: r.improvements || '', submitted: r.created_at };
+                });
+                exportQuestionnaireData(data, 'post_interview_lecturer_responses.csv');
+              }} style={{ marginTop: '0.75rem' }}>
+                <Download size={14} /> Export Lecturer Data
+              </ActionBtn>
+            </StatCard>
+          </StatsGrid>
+
+          <StatsGrid style={{ gridTemplateColumns: '1fr 1fr' }}>
+            <StatCard $accent="#6d28d9">
+              <StatLabel>Post-Interview Likert Summary</StatLabel>
+              <StatValue>{Object.values(postStudentLikertData).flat().length + postLecturerLikertData.length}</StatValue>
+              <ActionBtn $color="#6d28d9" onClick={() => {
+                const data = [];
+                Object.entries(postStudentLikertData).forEach(([section, stmts]) => {
+                  stmts.forEach(d => {
+                    data.push({ group: 'Student', section, statement: d.statement, strongly_agree: d.SA, agree: d.A, neutral: d.N, disagree: d.D, strongly_disagree: d.SD, total: d.total, avg_score: d.avg });
+                  });
+                });
+                postLecturerLikertData.forEach(d => {
+                  data.push({ group: 'Lecturer', section: 'B', statement: d.statement, strongly_agree: d.SA, agree: d.A, neutral: d.N, disagree: d.D, strongly_disagree: d.SD, total: d.total, avg_score: d.avg });
+                });
+                exportQuestionnaireData(data, 'post_interview_likert_summary.csv');
+              }} style={{ marginTop: '0.75rem' }}>
+                <Download size={14} /> Export Likert Summary
+              </ActionBtn>
+            </StatCard>
+
+            <StatCard $accent="#1e40af">
+              <StatLabel>Satisfaction &amp; Recommend</StatLabel>
+              <StatValue>{postSatisfactionData.reduce((s, d) => s + d.value, 0) + postRecommendData.reduce((s, d) => s + d.value, 0)}</StatValue>
+              <ActionBtn $color="#1e40af" onClick={() => {
+                const data = [
+                  ...postSatisfactionData.map(d => ({ question: 'Overall Satisfaction', option: d.name, count: d.value })),
+                  ...postRecommendData.map(d => ({ question: 'Would Recommend', option: d.name, count: d.value })),
+                ];
+                exportQuestionnaireData(data, 'post_interview_satisfaction_summary.csv');
+              }} style={{ marginTop: '0.75rem' }}>
+                <Download size={14} /> Export Satisfaction
               </ActionBtn>
             </StatCard>
           </StatsGrid>

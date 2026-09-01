@@ -235,6 +235,11 @@ export async function fetchAcceptedCourses(userId) {
 
 export async function acceptCourse(userId, courseId) {
   try {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      console.error('[acceptCourse] No active session — user may need to log in again');
+      return null;
+    }
     const { error } = await supabase
       .from('accepted_courses')
       .upsert({ user_id: userId, course_id: courseId }, { onConflict: 'user_id,course_id' });
