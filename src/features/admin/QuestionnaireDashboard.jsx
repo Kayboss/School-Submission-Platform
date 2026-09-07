@@ -143,9 +143,25 @@ const QuestionnaireDashboard = () => {
         supabase.from('profiles').select('*'),
         supabase.from('post_interview_responses').select('*').order('created_at', { ascending: false }),
       ]);
-      setResponses(rr.data || []);
-      setProfiles(p.data || []);
-      setPostInterviewResponses(pir.data || []);
+
+      const allProfiles = p.data || [];
+      const allResponses = rr.data || [];
+      const allPostResponses = pir.data || [];
+
+      // Select research sample: 28 students + 2 lecturers who completed both pre and post interview
+      const completedStudents = allProfiles
+        .filter(p => p.role === 'student' && p.onboarding_completed && p.post_interview_completed)
+        .sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
+        .slice(0, 28);
+      const completedLecturers = allProfiles
+        .filter(p => p.role === 'lecturer' && p.onboarding_completed && p.post_interview_completed)
+        .sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
+        .slice(0, 2);
+      const sampleIds = new Set([...completedStudents, ...completedLecturers].map(p => p.id));
+
+      setProfiles(allProfiles.filter(p => sampleIds.has(p.id)));
+      setResponses(allResponses.filter(r => sampleIds.has(r.user_id)));
+      setPostInterviewResponses(allPostResponses.filter(r => sampleIds.has(r.user_id)));
       setLoading(false);
     }
     load();

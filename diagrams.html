@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TaTU Submission Portal — System Diagrams</title>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #f8f9fa; color: #222; padding: 2rem;
+    }
+    h1 { font-size: 1.8rem; margin-bottom: 0.5rem; }
+    .subtitle { color: #666; margin-bottom: 2rem; }
+    .diagram-section {
+      background: #fff; border: 1px solid #e0e0e0; border-radius: 12px;
+      padding: 2rem; margin-bottom: 2rem; page-break-inside: avoid;
+    }
+    .diagram-section h2 {
+      font-size: 1.3rem; margin-bottom: 1rem; color: #b35a38;
+      border-bottom: 2px solid #b35a38; padding-bottom: 0.4rem;
+    }
+    .diagram-section p { color: #555; margin-bottom: 1rem; font-size: 0.95rem; }
+    .mermaid { text-align: center; overflow-x: auto; }
+    @media print {
+      body { background: #fff; padding: 1rem; }
+      .diagram-section { border: 1px solid #ccc; break-inside: avoid; }
+    }
+  </style>
+</head>
+<body>
+  <h1>TaTU Submission Portal — System Diagrams</h1>
+  <p class="subtitle">Open this file in any browser to view the rendered diagrams.</p>
+
+  <div class="diagram-section">
+    <h2>1. System Architecture</h2>
+    <p>High-level view of the React frontend, Supabase backend, and external services.</p>
+    <div class="mermaid">
+graph TB
+    subgraph Frontend["Frontend — Vercel"]
+        React["React 19 SPA"]
+        Zustand["Zustand State"]
+        Router["React Router v7"]
+    end
+
+    subgraph Supabase["Supabase Backend"]
+        Auth["Supabase Auth\nGoTrue"]
+        PostgREST["PostgREST API"]
+        Pg["PostgreSQL 15"]
+        Storage["Supabase Storage"]
+        RPC["RPC Functions"]
+    end
+
+    subgraph External["External Services"]
+        IpApi["ipapi.co\nGeolocation"]
+        GFonts["Google Fonts"]
+    end
+
+    React -->|"REST API"| PostgREST
+    React -->|"signUp / signIn"| Auth
+    React -->|"upload / download"| Storage
+    React -->|"RPC calls"| RPC
+    React -->|"IP geolocation"| IpApi
+    PostgREST -->|"queries"| Pg
+    RPC -->|"SECURITY DEFINER"| Pg
+    Auth -->|"JWT session"| PostgREST
+    Storage -->|"RLS policies"| Pg
+    </div>
+  </div>
+
+  <div class="diagram-section">
+    <h2>2. Data Flow</h2>
+    <p>Sequence of user interactions from signup through submission and grading.</p>
+    <div class="mermaid">
+sequenceDiagram
+    participant S as Student
+    participant L as Lecturer
+    participant A as Admin
+    participant DB as Supabase
+
+    S->>DB: Sign up → auth.users + profiles
+    S->>DB: Complete onboarding → research_responses
+    S->>DB: Accept course → accepted_courses
+    L->>DB: Create assignment → assignments
+    S->>DB: Upload submission → submissions + storage
+    L->>DB: Grade submission → submissions
+    A->>DB: View analytics → activity_log, user_sessions
+    S->>DB: Post-interview survey → post_interview_responses
+    </div>
+  </div>
+
+  <div class="diagram-section">
+    <h2>3. Database Schema</h2>
+    <p>Entity relationships between all core tables.</p>
+    <div class="mermaid">
+erDiagram
+    auth_users ||--|| profiles : "1:1 extends"
+    profiles ||--o{ courses : "lecturer owns"
+    profiles ||--o{ submissions : "student submits"
+    profiles ||--o{ accepted_courses : "enrolls"
+    profiles ||--o{ notifications : "receives"
+    profiles ||--o{ activity_log : "tracked"
+    profiles ||--o{ user_sessions : "sessions"
+    profiles ||--o{ research_responses : "onboarding"
+    profiles ||--o{ post_interview_responses : "feedback"
+
+    courses ||--o{ assignments : "has many"
+    courses ||--o{ accepted_courses : "enrolled by"
+
+    assignments ||--|| rubrics : "1:1 criteria"
+    assignments ||--o{ submissions : "has many"
+
+    auth_users {
+        uuid id PK
+    }
+
+    profiles {
+        uuid id PK
+        text name
+        text email
+        text role
+        text institution
+        text student_id
+        boolean onboarding_completed
+        boolean post_interview_completed
+    }
+
+    courses {
+        bigserial id PK
+        text code UK
+        text name
+        text instructor
+        uuid user_id FK
+    }
+
+    assignments {
+        text id PK
+        text course_code FK
+        text title
+        timestamptz due_date
+        jsonb submission_types
+        uuid user_id FK
+    }
+
+    rubrics {
+        text id PK
+        text assignment_id FK
+        jsonb criteria
+    }
+
+    submissions {
+        text id PK
+        text assignment_id FK
+        uuid user_id FK
+        jsonb files
+        text status
+        integer score
+        jsonb versions
+    }
+
+    accepted_courses {
+        uuid user_id PK
+        bigserial course_id PK
+    }
+
+    notifications {
+        bigserial id PK
+        uuid user_id FK
+        text type
+        boolean read
+    }
+
+    activity_log {
+        bigserial id PK
+        uuid user_id FK
+        text action
+        jsonb metadata
+    }
+
+    user_sessions {
+        bigserial id PK
+        uuid user_id FK
+        timestamptz login_at
+        timestamptz logout_at
+    }
+
+    research_responses {
+        uuid id PK
+        uuid user_id FK
+        text section
+        text answer
+    }
+
+    post_interview_responses {
+        uuid id PK
+        uuid user_id FK
+        text role
+        text answer
+    }
+    </div>
+  </div>
+
+  <script>
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: 'default',
+      securityLevel: 'loose',
+      er: { useMaxWidth: false },
+      sequence: { useMaxWidth: false, actorMargin: 80 },
+      flowchart: { useMaxWidth: false, curve: 'basis' }
+    });
+  </script>
+</body>
+</html>
