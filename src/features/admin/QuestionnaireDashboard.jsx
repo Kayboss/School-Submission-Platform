@@ -148,16 +148,32 @@ const QuestionnaireDashboard = () => {
       const allResponses = rr.data || [];
       const allPostResponses = pir.data || [];
 
-      // Select research sample: 28 students + 2 lecturers who completed both pre and post interview
-      const completedStudents = allProfiles
-        .filter(p => p.role === 'student' && p.onboarding_completed && p.post_interview_completed)
-        .sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
+      // Select research sample based on who has actual pre-interview response data
+      const profileMap = Object.fromEntries(allProfiles.map(p => [p.id, p]));
+
+      // Find earliest response date per user
+      const firstResponseDate = {};
+      allResponses.forEach(r => {
+        if (!firstResponseDate[r.user_id] || r.created_at < firstResponseDate[r.user_id]) {
+          firstResponseDate[r.user_id] = r.created_at;
+        }
+      });
+
+      const preUserIds = Object.keys(firstResponseDate);
+
+      // First 28 students with pre-interview responses (sorted by earliest response)
+      const preStudentIds = preUserIds
+        .filter(id => profileMap[id]?.role === 'student')
+        .sort((a, b) => firstResponseDate[a].localeCompare(firstResponseDate[b]))
         .slice(0, 28);
-      const completedLecturers = allProfiles
-        .filter(p => p.role === 'lecturer' && p.onboarding_completed && p.post_interview_completed)
-        .sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
+
+      // First 2 lecturers with pre-interview responses
+      const preLecturerIds = preUserIds
+        .filter(id => profileMap[id]?.role === 'lecturer')
+        .sort((a, b) => firstResponseDate[a].localeCompare(firstResponseDate[b]))
         .slice(0, 2);
-      const sampleIds = new Set([...completedStudents, ...completedLecturers].map(p => p.id));
+
+      const sampleIds = new Set([...preStudentIds, ...preLecturerIds]);
 
       setProfiles(allProfiles.filter(p => sampleIds.has(p.id)));
       setResponses(allResponses.filter(r => sampleIds.has(r.user_id)));
