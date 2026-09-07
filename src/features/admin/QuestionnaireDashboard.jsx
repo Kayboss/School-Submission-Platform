@@ -148,32 +148,33 @@ const QuestionnaireDashboard = () => {
       const allResponses = rr.data || [];
       const allPostResponses = pir.data || [];
 
-      // Select research sample based on who has actual pre-interview response data
+      // Select research sample based on post-interview data
+      // (completing post-interview implies they also completed pre-interview)
       const profileMap = Object.fromEntries(allProfiles.map(p => [p.id, p]));
 
-      // Find earliest response date per user
-      const firstResponseDate = {};
-      allResponses.forEach(r => {
-        if (!firstResponseDate[r.user_id] || r.created_at < firstResponseDate[r.user_id]) {
-          firstResponseDate[r.user_id] = r.created_at;
+      // Find earliest post-interview response date per user
+      const firstPostDate = {};
+      allPostResponses.forEach(r => {
+        if (!firstPostDate[r.user_id] || r.created_at < firstPostDate[r.user_id]) {
+          firstPostDate[r.user_id] = r.created_at;
         }
       });
 
-      const preUserIds = Object.keys(firstResponseDate);
+      const postUserIds = Object.keys(firstPostDate);
 
-      // First 28 students with pre-interview responses (sorted by earliest response)
-      const preStudentIds = preUserIds
+      // First 28 students with post-interview responses (sorted by earliest response)
+      const sampleStudentIds = postUserIds
         .filter(id => profileMap[id]?.role === 'student')
-        .sort((a, b) => firstResponseDate[a].localeCompare(firstResponseDate[b]))
+        .sort((a, b) => firstPostDate[a].localeCompare(firstPostDate[b]))
         .slice(0, 28);
 
-      // First 2 lecturers with pre-interview responses
-      const preLecturerIds = preUserIds
+      // First 2 lecturers with post-interview responses
+      const sampleLecturerIds = postUserIds
         .filter(id => profileMap[id]?.role === 'lecturer')
-        .sort((a, b) => firstResponseDate[a].localeCompare(firstResponseDate[b]))
+        .sort((a, b) => firstPostDate[a].localeCompare(firstPostDate[b]))
         .slice(0, 2);
 
-      const sampleIds = new Set([...preStudentIds, ...preLecturerIds]);
+      const sampleIds = new Set([...sampleStudentIds, ...sampleLecturerIds]);
 
       setProfiles(allProfiles.filter(p => sampleIds.has(p.id)));
       setResponses(allResponses.filter(r => sampleIds.has(r.user_id)));
