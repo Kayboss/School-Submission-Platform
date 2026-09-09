@@ -83,22 +83,8 @@ const CheckAuth = ({ children }) => {
   return children;
 };
 
-// Redirects students who haven't completed onboarding questionnaire
-const OnboardingGuard = ({ children }) => {
-  const user = useAuthStore(s => s.user);
-  const location = useLocation();
-
-  if (!user) return children;
-
-  const isStudent = user.role === 'student' || !user.role;
-  const needsOnboarding = isStudent && user.onboarding_completed === false;
-
-  if (needsOnboarding && location.pathname !== '/onboarding') {
-    return <Navigate to="/onboarding" replace />;
-  }
-
-  return children;
-};
+// Onboarding questionnaire disabled
+const OnboardingGuard = ({ children }) => children;
 
 // Restricts a route to specific roles (e.g. admin-only dashboards)
 const RoleGuard = ({ allowed, children }) => {
@@ -231,7 +217,7 @@ const App = () => {
           <ErrorCatcher />
           <ToastContainer />
           <UploadProgress />
-          <PostInterviewModal />
+          {/* PostInterviewModal disabled */}
           <ErrorBoundary>
           <Routes>
             {/* Public Routes */}
